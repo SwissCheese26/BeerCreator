@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>Beer Creator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-icon">🍺</span><span>Beer Creator</span></div>
+      <div class="side-label">Bierstile</div>
+      <nav id="styleList" class="style-list"></nav>
+      <div class="side-spacer"></div>
+      <div class="side-actions">
+        <button class="btn ghost" id="btnExport">Rezept exportieren</button>
+        <button class="btn ghost" id="btnImport">Rezept importieren</button>
+        <input type="file" id="fileImport" accept="application/json" hidden>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <input id="recipeName" class="title-input" aria-label="Rezeptname" spellcheck="false">
+          <p id="styleDesc" class="subtitle"></p>
+        </div>
+        <button class="btn" id="btnReset">Zurücksetzen</button>
+      </header>
+
+      <section class="stats" id="stats"></section>
+
+      <div class="columns">
+        <div class="col">
+          <h2>Stellschrauben</h2>
+          <div class="group" id="sliders"></div>
+
+          <h2>Schüttung <button class="link" id="addMalt">+ Malz</button></h2>
+          <div class="group" id="maltList"></div>
+
+          <h2>Hopfen <button class="link" id="addHop">+ Hopfen</button></h2>
+          <div class="group" id="hopList"></div>
+
+          <h2>Hefe</h2>
+          <div class="group" id="yeastBox"></div>
+        </div>
+
+        <div class="col">
+          <h2>Passt zum Stil?</h2>
+          <div class="group" id="fit"></div>
+
+          <h2>Hinweise</h2>
+          <div class="group" id="notes"></div>
+
+          <h2>Wasser</h2>
+          <div class="group" id="waterBox"></div>
+
+          <h2>Maischplan</h2>
+          <div class="group" id="mashBox"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

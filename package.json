@@ -1,0 +1,22 @@
+{
+  "name": "beer-creator",
+  "version": "0.1.0",
+  "description": "Bier-Rezept-Rechner mit Live-Auswirkungen (Windows-Desktop-App)",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "de.beercreator.app",
+    "productName": "Beer Creator",
+    "files": ["src/**/*", "package.json"],
+    "win": { "target": "nsis" }
+  }
+}
