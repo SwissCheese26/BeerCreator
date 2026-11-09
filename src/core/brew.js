@@ -1,5 +1,5 @@
 // Reine Brau-Logik (keine DOM-Abhängigkeit, daher testbar).
-import { MALTS, HOPS, YEASTS, STYLES, byId } from './data.js';
+import { MALTS, HOPS, HOP_FORMS, YEASTS, STYLES, byId } from './data.js';
 
 export const platoToSG = p => 1 + p / (258.6 - (p / 258.2) * 227.1);
 export const sgToPlato = sg => -616.868 + 1111.14 * sg - 630.272 * sg ** 2 + 135.997 * sg ** 3;
@@ -36,12 +36,13 @@ export function setIbu(recipe, targetIbu) {
   const cur = compute(recipe).ibu;
   if (cur <= 0) return false;
   const k = targetIbu / cur;
-  recipe.hops.forEach(h => { h.gPerL *= k; });
+  recipe.hops.forEach(h => { if (h.time > 0) h.gPerL *= k; }); // Aroma-/Whirlpool-Gaben (0 min) bleiben fix
   return true;
 }
 
 /** Tinseth-Ausbeute (Anteil der Alphasäure, der isomerisiert und gelöst wird). */
 export function hopUtilization(boilGravitySG, minutes) {
+  minutes = Math.max(0, minutes);
   const bigness = 1.65 * Math.pow(0.000125, boilGravitySG - 1);
   const timeFactor = (1 - Math.exp(-0.04 * minutes)) / 4.15;
   return bigness * timeFactor;
@@ -57,17 +58,19 @@ export function colorEBC(items, litres) {
 }
 
 export function compute(recipe) {
-  const V = recipe.batchL;
-  const P = recipe.plato;
+  const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+x) ? +x : lo));
+  const V = clamp(recipe.batchL, 0.1, 100000);
+  const P = clamp(recipe.plato, 0.1, 40);
+  recipe = { ...recipe, evapPct: clamp(recipe.evapPct, 0, 60), efficiency: clamp(recipe.efficiency, 1, 100) };
   const yeast = byId(YEASTS, recipe.yeastId) || YEASTS[0];
   const og = platoToSG(P);
 
   // --- Schüttung: Extraktbedarf -> Malzmenge
   const extractKg = V * og * P / 100;
-  const shareSum = recipe.malts.reduce((s, m) => s + Math.max(0, m.share), 0) || 1;
-  const maltInfo = recipe.malts.map(m => ({ ...byId(MALTS, m.id), pct: Math.max(0, m.share) / shareSum * 100 }));
+  const shareSum = recipe.malts.reduce((s, m) => s + (byId(MALTS, m.id) ? Math.max(0, m.share) : 0), 0) || 1;
+  const maltInfo = recipe.malts.filter(m => byId(MALTS, m.id)).map(m => ({ ...byId(MALTS, m.id), pct: Math.max(0, m.share) / shareSum * 100 }));
   const avgYield = maltInfo.reduce((s, m) => s + (m.pct / 100) * m.extract / 100, 0);
-  const grainKg = extractKg / (avgYield * recipe.efficiency / 100);
+  const grainKg = avgYield > 0 ? extractKg / (avgYield * recipe.efficiency / 100) : 0; // ohne Schüttung kein Malz
   const malts = maltInfo.map(m => ({ id: m.id, name: m.name, pct: m.pct, kg: grainKg * m.pct / 100, ebc: m.ebc, maxPct: m.maxPct }));
 
   // --- Wasser
@@ -79,18 +82,20 @@ export function compute(recipe) {
     sparge: totalWater - mashWater,
     total: totalWater,
     preBoilHot: coldPre / HOT_SHRINK,
-    mashThickness: mashWater / grainKg,
+    mashThickness: grainKg > 0 ? mashWater / grainKg : 0,
   };
 
   // --- Bittere
   const preSG = 1 + (og - 1) * (1 - recipe.evapPct / 100);
   const boilSG = (preSG + og) / 2;
-  const hops = recipe.hops.map(h => {
+  const hops = recipe.hops.filter(h => byId(HOPS, h.id)).map(h => {
     const info = byId(HOPS, h.id);
     const g = h.gPerL * V;
-    const mgPerL = (info.alpha / 100) * g * 1000 / V;
-    const ibu = hopUtilization(boilSG, h.time) * mgPerL * (h.form === 'pellet' ? 1.1 : 1);
-    return { id: h.id, name: info.name, alpha: info.alpha, time: h.time, g, ibu };
+    const form = HOP_FORMS[h.form || 'pellet'] || HOP_FORMS.pellet;
+    const alpha = (form.alpha ?? info.alpha) * (h.fresh ?? 1); // h.fresh: Frischefaktor (Alterung), 1 = frisch
+    const mgPerL = (alpha / 100) * g * 1000 / V;
+    const ibu = hopUtilization(boilSG, h.time) * mgPerL * form.util;
+    return { id: h.id, name: info.name, form: form.id, alpha, time: h.time, g, ibu };
   });
   const ibu = hops.reduce((s, h) => s + h.ibu, 0);
 
@@ -122,6 +127,7 @@ export function compute(recipe) {
 
 function warnings({ P, malts, water, gravityPenalty, grainKg, V, ibu, bugu }) {
   const w = [];
+  if (grainKg <= 0) w.push({ level: 'warn', text: 'Keine Schüttung – ohne Malz gibt es keinen Extrakt.' });
   if (P > 16) w.push({ level: 'warn', text: 'Sehr hohe Stammwürze: mehr Hefe, mehr Sauerstoff und längere Gärung/Reifung einplanen.' });
   if (gravityPenalty > 0.5) w.push({ level: 'info', text: `Hochstammwürze senkt den Vergärungsgrad um ca. ${gravityPenalty.toFixed(1).replace(".", ",")} Prozentpunkte – das Bier bleibt süßer.` });
   if (P < 7) w.push({ level: 'info', text: 'Sehr niedrige Stammwürze – Schankbier/Leichtbier, wenig Körper.' });

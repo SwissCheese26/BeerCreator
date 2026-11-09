@@ -7,7 +7,9 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "dist": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis",
+    "game": "node src/game/cli.js",
+    "game:sandbox": "node src/game/cli.js sandbox neu"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -16,7 +18,12 @@
   "build": {
     "appId": "de.beercreator.app",
     "productName": "Beer Creator",
-    "files": ["src/**/*", "package.json"],
-    "win": { "target": "nsis" }
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
   }
 }

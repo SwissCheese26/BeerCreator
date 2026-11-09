@@ -28,13 +28,21 @@ export const HOPS = [
   { id: 'mosaic',      name: 'Mosaic',                 alpha: 11.5, note: 'beerig, tropisch' },
 ];
 
+// Hopfenformen: util = Ausbeute-Faktor, alpha = fester α-Wert (Extrakt), aroma = Aromawirkung bei späten Gaben,
+// decay = Alterungsrate pro Tag (Alpha-/Aromaverlust), priceMul = Preisfaktor ggü. Pellets
+export const HOP_FORMS = {
+  whole:   { id: 'whole',   name: 'Doldenhopfen',          util: 1.0,  alpha: null, aroma: 1.0, decay: 0.0014, priceMul: 1.3 },
+  pellet:  { id: 'pellet',  name: 'Pellets (T90)',         util: 1.1,  alpha: null, aroma: 0.9, decay: 0.0004, priceMul: 1.0 },
+  extract: { id: 'extract', name: 'Hopfenextrakt (CO₂)',   util: 1.05, alpha: 30,   aroma: 0.0, decay: 0.0001, priceMul: 1.0 },
+};
+
 // attenuation: scheinbarer Endvergärungsgrad (Basis), rate: Mio. Zellen / ml / °P, temp: Gärtemperatur °C
 export const YEASTS = [
-  { id: 'lager',  name: 'Untergärige Lagerhefe (W-34/70)', attenuation: 80, rate: 1.5,  temp: '9–13 °C',  type: 'Lager' },
-  { id: 'weizen', name: 'Weizenhefe (W-68)',               attenuation: 78, rate: 0.75, temp: '18–23 °C', type: 'Ale' },
-  { id: 'ale',    name: 'Amerikanische Ale-Hefe (US-05)',  attenuation: 79, rate: 0.75, temp: '16–20 °C', type: 'Ale' },
-  { id: 'koelsch',name: 'Kölsch-Hefe (K-97)',              attenuation: 81, rate: 0.75, temp: '15–19 °C', type: 'Ale' },
-  { id: 'stout',  name: 'Englische Ale-Hefe (S-04)',       attenuation: 74, rate: 0.75, temp: '15–20 °C', type: 'Ale' },
+  { id: 'lager',  name: 'Untergärige Lagerhefe (W-34/70)', attenuation: 80, rate: 1.5,  temp: '9–13 °C',  tMin: 9,  tMax: 13, type: 'Lager' },
+  { id: 'weizen', name: 'Weizenhefe (W-68)',               attenuation: 78, rate: 0.75, temp: '18–23 °C', tMin: 18, tMax: 23, type: 'Ale' },
+  { id: 'ale',    name: 'Amerikanische Ale-Hefe (US-05)',  attenuation: 79, rate: 0.75, temp: '16–20 °C', tMin: 16, tMax: 20, type: 'Ale' },
+  { id: 'koelsch',name: 'Kölsch-Hefe (K-97)',              attenuation: 81, rate: 0.75, temp: '15–19 °C', tMin: 15, tMax: 19, type: 'Ale' },
+  { id: 'stout',  name: 'Englische Ale-Hefe (S-04)',       attenuation: 74, rate: 0.75, temp: '15–20 °C', tMin: 15, tMax: 20, type: 'Ale' },
 ];
 
 // Stile: Zielbereiche + Startrezept. hops: [id, Gewichtung, Kochzeit min]; Mengen werden auf `ibu` skaliert.

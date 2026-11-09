@@ -82,3 +82,28 @@ test('Wasser: Haupt- + Nachguss = Gesamtwasser', () => {
   near(c.water.mash + c.water.sparge, c.water.total, 1e-9);
   assert.match(ebcToHex(10), /^#[0-9a-f]{6}$/);
 });
+
+test('Robustheit: leere Schüttung, V=0, negative Zeit ergeben keine NaN/Infinity', () => {
+  const r = newRecipeFromStyle('pils');
+  const check = c => Object.entries(c).forEach(([k, v]) => typeof v === 'number' && assert.ok(Number.isFinite(v), `${k}=${v}`));
+  r.malts = []; check(compute(r));
+  r.malts = [{ id: 'pilsner', share: 0 }]; check(compute(r));
+  const r2 = newRecipeFromStyle('pils'); r2.batchL = 0; check(compute(r2));
+  r2.batchL = 20; r2.hops[0].time = -10; assert.ok(compute(r2).hops[0].ibu >= 0);
+});
+
+test('Hopfenform: Extrakt hat festes Alpha, Frische senkt die Bittere', () => {
+  const r = newRecipeFromStyle('pils');
+  const pellet = compute(r).ibu;
+  r.hops.forEach(h => { h.fresh = 0.5; });
+  near(compute(r).ibu, pellet * 0.5, 0.01);
+  r.hops.forEach(h => { h.fresh = 1; h.form = 'extract'; });
+  assert.ok(compute(r).hops[0].alpha === 30);
+});
+
+test('IBU-Regler lässt Aroma-Gaben (0 min) unverändert', () => {
+  const r = newRecipeFromStyle('ipa');
+  const g0 = compute(r).hops.at(-1).g;
+  setIbu(r, 120);
+  near(compute(r).hops.at(-1).g, g0, 1e-9);
+});
