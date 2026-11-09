@@ -7,7 +7,8 @@ export const TAX_PER_HL_PLATO = 0.787; // Biersteuer € je hl und °P
 export const TAX_SMALL_FACTOR = 0.5;   // vereinfachte Mengenstaffel für Kleinbrauereien
 export const YEAST_PACK_CELLS = 160;   // Mrd. Zellen je Trockenhefe-Päckchen (11,5 g)
 export const BOTTLING_LOSS = 0.92;     // Anteil des Gärvolumens, der als Fertigbier übrig bleibt
-export const CELLAR_RENT = 40;         // € pro 30 Tage
+export const CELLAR_RENT = 40;
+export const ENERGY_PER_L = 0.35;       // € Gas/Strom/Wasser je Liter Ausschlag         // € pro 30 Tage
 
 export const EQUIPMENT = {
   kettle: {
@@ -33,17 +34,22 @@ export const TIER_ORDER = {
 };
 
 export const MALT_PRICE = { pilsner: 1.9, pale: 2.0, wiener: 2.2, muenchner: 2.3, weizen: 2.2, rauch: 3.2,
-  carapils: 3.0, carahell: 3.0, caramuench: 3.2, carafa: 4.2, roest: 3.8 };      // € / kg
+  carapils: 3.0, carahell: 3.0, caramuench: 3.2, carafa: 4.2, roest: 3.8,
+  melanoidin: 3.4, weizendunkel: 2.5, roggen: 2.6, hafer: 2.4, sauermalz: 3.5, kandis: 4.5 };      // € / kg
 export const HOP_PRICE_PELLET = { hallertauer: 0.035, tettnanger: 0.04, saphir: 0.04, tradition: 0.03, perle: 0.028,
-  magnum: 0.026, cascade: 0.045, citra: 0.08, mosaic: 0.085 };                   // € / g
+  magnum: 0.026, cascade: 0.045, citra: 0.08, mosaic: 0.085,
+  saaz: 0.05, hersbruck: 0.036, northern: 0.03, fuggles: 0.04, goldings: 0.055 };                   // € / g
 export const HOP_EXTRACT_PRICE = 0.06;                                           // € / g (30 % α)
-export const YEAST_PRICE = { lager: 4.5, weizen: 3.8, ale: 3.8, koelsch: 4.2, stout: 3.8 }; // € / Päckchen
+export const YEAST_PRICE = { lager: 4.5, weizen: 3.8, ale: 3.8, koelsch: 4.2, stout: 3.8,
+  belgisch: 4.8, saison: 5.0, sauer: 6.5 }; // € / Päckchen
 export const SANITIZER_PRICE = 6;
 
 // Wie viel Hopfenaroma (g/L aus Gaben ≤ 15 min, gewichtet) ein Stil erwartet
-export const STYLE_AROMA = { pils: 0.15, helles: 0.1, maerzen: 0.08, weizen: 0.02, pale: 0.5, ipa: 1.0, stout: 0.08, doppelbock: 0.06 };
+export const STYLE_AROMA = { pils: 0.15, helles: 0.1, maerzen: 0.08, weizen: 0.02, pale: 0.5, ipa: 1.0, stout: 0.08, doppelbock: 0.06,
+  koelsch: 0.1, dunkel: 0.08, schwarzbier: 0.08, bock: 0.06, alt: 0.12, rauch: 0.08, porter: 0.1, imperial: 0.15, dubbel: 0.08,
+  tripel: 0.15, saison: 0.2, witbier: 0.03, dunkelweizen: 0.02, neipa: 1.5, berliner: 0.02 };
 
-export const FERMENT_DAYS = { lager: 28, weizen: 12, ale: 14, koelsch: 18, stout: 16 };
+export const FERMENT_DAYS = { lager: 28, weizen: 12, ale: 14, koelsch: 18, stout: 16, belgisch: 21, saison: 16, sauer: 28 };
 
 export const MONTHS = [['Jan', 31], ['Feb', 28], ['Mär', 31], ['Apr', 30], ['Mai', 31], ['Jun', 30],
   ['Jul', 31], ['Aug', 31], ['Sep', 30], ['Okt', 31], ['Nov', 30], ['Dez', 31]];

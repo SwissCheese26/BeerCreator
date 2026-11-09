@@ -3,3 +3,5 @@ export * from './shop.js';
 export * from './batch.js';
 export * from './config.js';
 export { CHAPTERS, EVENTS, ENDINGS } from './story.js';
+export * from './progress.js';
+export * from './info.js';

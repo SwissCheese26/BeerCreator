@@ -1,12 +1,14 @@
 // Sud starten, Qualität bewerten, Fehlaromen auswürfeln.
 import { HOP_FORMS, YEASTS, STYLES, byId } from '../core/data.js';
 import { compute, rangeStatus, setIbu } from '../core/brew.js';
-import { EQUIPMENT, YEAST_PACK_CELLS, BOTTLING_LOSS, STYLE_AROMA, FERMENT_DAYS, ambientTemp } from './config.js';
-import { hopKey, buyMalt, buyHop, buyYeast, buySanitizer } from './shop.js';
+import { EQUIPMENT, YEAST_PACK_CELLS, BOTTLING_LOSS, STYLE_AROMA, FERMENT_DAYS, ambientTemp, MALT_PRICE, YEAST_PRICE, SANITIZER_PRICE, ENERGY_PER_L } from './config.js';
+import { STYLE_META, levelOf, isUnlocked } from './progress.js';
+import { hopKey, hopPrice, buyMalt, buyHop, buyYeast, buySanitizer } from './shop.js';
 import { need, rand, log, clamp, round2 } from './state.js';
 
+export const skillLevel = s => levelOf(s.skill.xp).lvl;
 export const hygieneOf = (s, sanitized) =>
-  clamp(s.hygiene + EQUIPMENT.fermenter[s.equipment.fermenter].hygiene + (sanitized ? 0.25 : 0), 0, 1);
+  clamp(s.hygiene + Math.min(0.14, (skillLevel(s) - 1) * 0.02) + EQUIPMENT.fermenter[s.equipment.fermenter].hygiene + (sanitized ? 0.25 : 0), 0, 1);
 export const slotsOf = s => EQUIPMENT.fermenter[s.equipment.fermenter].slots + (s.flags.keller ? 1 : 0);
 
 /** Zutaten aus dem Lager „simulieren“: Mengen prüfen und Frische je Hopfengabe bestimmen (ohne Verbrauch). */
@@ -55,6 +57,9 @@ export function previewBatch(s, recipe) {
 }
 
 export function startBatch(s, recipe, { name } = {}) {
+  const meta = STYLE_META[recipe.styleId];
+  need(meta, 'Unbekannter Bierstil.');
+  need(isUnlocked(s, recipe.styleId), `Den Stil „${byId(STYLES, recipe.styleId).name}“ hast du noch nicht gelernt. Belege den Kurs (Level ${meta.minLevel}, ${meta.cost} €).`);
   const maxL = EQUIPMENT.kettle[s.equipment.kettle].maxBatchL;
   need(recipe.batchL <= maxL, `Dein ${EQUIPMENT.kettle[s.equipment.kettle].name} fasst höchstens ${maxL} L Ausschlag.`);
   need(s.batches.filter(b => b.status === 'gaerend').length < slotsOf(s), 'Alle Gärplätze sind belegt – warte auf einen fertigen Sud oder kaufe einen größeren Gärtank.');
@@ -123,11 +128,32 @@ export function startBatch(s, recipe, { name } = {}) {
   const extractIbu = c.hops.reduce((a, h) => a + (h.form === 'extract' ? h.ibu : 0), 0);
   if (c.ibu > 0 && extractIbu / c.ibu > 0.7) { flaws.push('hart'); extra -= 8; notes.push('Bittere fast nur aus Extrakt: hart und kratzig, ohne Hopfenkomplexität.'); }
 
+  // Können: fehlende Erfahrung bei schwierigen Stilen und Ungenauigkeit bei niedrigem Level
+  const lvl = skillLevel(s);
+  const complexity = Math.max(0, meta.difficulty - lvl * 0.8) * 3;
+  const swing = (rand(s) * 2 - 1) * Math.max(0, 10 - lvl * 1.2);
+  if (complexity > 2) notes.push(`Dir fehlt Erfahrung für diesen Stil (Schwierigkeit ${meta.difficulty}, du bist Level ${lvl}): Abzug ${complexity.toFixed(0)} Punkte.`);
+  const counts = (s.stats.styleCount ||= {});
+  const tries = counts[recipe.styleId] || 0;
+  const practice = Math.max(0, 3 - tries) * meta.difficulty * 1.5 * Math.max(0.3, 1 - 0.1 * lvl);
+  if (practice > 2) notes.push(tries === 0 ? 'Der erste Sud dieses Stils: Dir fehlt noch die Übung mit den Besonderheiten.' : 'Du übst diesen Stil noch – mit jedem Sud wird es besser.');
+  extra += swing - complexity - practice;
+  counts[recipe.styleId] = tries + 1;
+
   const quality = Math.round(clamp(Object.values(pts).reduce((a, b) => a + b, 0) + extra, 0, 100));
+
+  // Kosten des Suds (zu aktuellen Preisen)
+  const maltCost = c.malts.reduce((a, m) => a + MALT_PRICE[m.id] * m.kg, 0);
+  const hopCost = c.hops.reduce((a, h) => a + hopPrice(s, h.id, h.form) * h.g, 0);
+  const yeastCost = Math.min(pv.packsNeeded, pv.packsHave) * YEAST_PRICE[recipe.yeastId];
+  const energyCost = ENERGY_PER_L * recipe.batchL + (sanitized ? SANITIZER_PRICE : 0);
+  const cost = { malt: round2(maltCost), hops: round2(hopCost), yeast: round2(yeastCost), energy: round2(energyCost),
+    total: round2(maltCost + hopCost + yeastCost + energyCost) };
   const batch = {
     id: s.nextId++, name: name || recipe.name, styleId: recipe.styleId, status: 'gaerend', startDay: s.day, readyDay: s.day + readyIn,
     liters: round2(recipe.batchL * BOTTLING_LOSS), quality, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
     calc: { plato: c.plato, abv: c.abv, ibu: c.ibu, ebc: c.ebc, fgP: c.fgP },
+    cost, costPerLiter: round2(cost.total / (recipe.batchL * BOTTLING_LOSS)),
   };
   s.batches.push(batch);
   s.stats.batches++;
@@ -144,6 +170,7 @@ export function qualityLabel(q) {
 
 /** Komfort: fehlende Zutaten für ein Rezept einkaufen (inkl. 1 Dosis Desinfektionsmittel). */
 export function buyForRecipe(s, recipe) {
+  need(isUnlocked(s, recipe.styleId), `Den Stil „${byId(STYLES, recipe.styleId).name}“ hast du noch nicht gelernt – erst den Kurs belegen.`);
   const c = compute(recipe);
   c.malts.forEach(m => {
     const lack = m.kg - (s.inventory.malts[m.id] || 0);

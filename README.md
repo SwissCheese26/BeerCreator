@@ -33,3 +33,10 @@ npm run game:sandbox    # Sandbox im Terminal
 npm test                # Logik-, Spiel- und Story-Tests (inkl. Bot, der die Story durchspielt)
 ```
 Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
+
+## Alle Bierarten, Skill-Level, Kosten, Info-Texte
+- **22 Bierstile** (`src/core/data.js`): Pils, Helles, Märzen, Weizen, Pale Ale, IPA, Stout, Doppelbock, Kölsch, Dunkel, Schwarzbier, Bock, Altbier, Rauchbier, Porter, Imperial Stout, Dubbel, Tripel, Saison, Witbier, Dunkelweizen, New England IPA, Berliner Weisse – jeder mit Startrezept, Zielbereichen und Maischplan. Dazu 17 Malze, 14 Hopfen, 8 Hefen.
+- **Skill-Level** (`src/game/progress.js`): 8 Stufen (Anfänger … Braulegende), XP aus fertigen Suden (mehr bei schwierigen Stilen und guter Qualität, Bonus beim ersten Mal). Jeder Stil hat Schwierigkeit 1–5, Mindest-Level und **Kursgebühr**; ohne Kurs kein Sud. Level senkt Ungenauigkeit und Infektionsrisiko, und die ersten drei Sude eines Stils gelingen selten perfekt (Übung).
+- **Kosten:** Kurse, Ausrüstung, Zutaten, Energie/Wasser, Desinfektion; jeder Sud zeigt Kosten gesamt und pro Liter (`batch.cost`, `batch.costPerLiter`).
+- **Info-Texte** (`src/game/info.js`): zu jedem Malz, Hopfen, jeder Hopfenform, Hefe, jedem Stil, jeder Ausrüstung, jedem Level, Kennwert und Fehlaroma – `getInfo(kind, id)` / `findInfo(id)`; im Terminal: `info citra`. Ein Test stellt sicher, dass nichts ohne Text bleibt.
+- **Sandbox:** alle Stile frei, Level einstellbar (`level 1–8`), damit man die Folgen von Können ausprobieren kann.

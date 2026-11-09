@@ -2,6 +2,7 @@
 // Alles Text ist Deutsch; Zustand wird nur über `s` verändert (JSON-serialisierbar).
 import { EQUIPMENT, TIER_ORDER, CELLAR_RENT } from './config.js';
 import { log, rand, need, spend, round2 } from './state.js';
+import { addXp } from './progress.js';
 
 const tierAtLeast = (s, slot, tier) => TIER_ORDER[slot].indexOf(s.equipment[slot]) >= TIER_ORDER[slot].indexOf(tier);
 const stockOf = s => s.beers.filter(b => b.liters > 0.01);
@@ -153,7 +154,7 @@ export const EVENTS = {
           if (!medal) { s.reputation += 1; return `Jury-Wertung ${score.toFixed(0)} – keine Platzierung. „Nächstes Jahr!“`; }
           s.stats.medals.push({ medal, beer: beer.name, day: s.day });
           const bonus = { Gold: [15, 300], Silber: [10, 120], Bronze: [6, 0] }[medal];
-          s.reputation += bonus[0]; s.cash = round2(s.cash + bonus[1]); s.flags.done_wettbewerb = true;
+          addXp(s, { Gold: 150, Silber: 90, Bronze: 50 }[medal], 'Medaille'); s.reputation += bonus[0]; s.cash = round2(s.cash + bonus[1]); s.flags.done_wettbewerb = true;
           return `${medal}medaille für „${beer.name}“ (Wertung ${score.toFixed(0)})! Ruf +${bonus[0]}${bonus[1] ? `, Preisgeld ${bonus[1]} €` : ''}.`;
         } },
       { id: 'verzichten', label: 'Dieses Mal verzichten (Frage kommt in 30 Tagen wieder).',

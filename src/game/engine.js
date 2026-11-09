@@ -4,6 +4,7 @@ import { newRecipeFromStyle } from '../core/brew.js';
 import { START_DAY, YEAR_DAYS, HOBBY_LIMIT_L, TAX_PER_HL_PLATO, TAX_SMALL_FACTOR, CELLAR_RENT, EQUIPMENT, TIER_ORDER } from './config.js';
 import { GameError, rand, log, need, clamp, round2 } from './state.js';
 import { CHAPTERS, EVENTS, ENDINGS } from './story.js';
+import { LEVELS, freeStyles, addXp, brewXp, levelInfo } from './progress.js';
 import { qualityLabel } from './batch.js';
 
 export function newGame({ mode = 'story', seed = 42 } = {}) {
@@ -14,8 +15,9 @@ export function newGame({ mode = 'story', seed = 42 } = {}) {
     equipment: sandbox ? { kettle: 'kessel100', fermenter: 'konisch', cooling: 'profi' } : { kettle: 'topf', fermenter: 'eimer', cooling: 'keine' },
     inventory: { malts: {}, hops: [], yeast: {}, sanitizer: 0 },
     batches: [], beers: [], nextId: 1, chapter: 0, chapterStarted: false, ended: false, event: null, flags: {},
+    skill: { xp: sandbox ? LEVELS.at(-1).xp : 0 }, unlocked: sandbox ? STYLES.map(x => x.id) : freeStyles(),
     litersYear: 0, yearStart: START_DAY, soldWeek: 0,
-    stats: { batches: 0, bestQuality: 0, styles: [], givenL: 0, soldL: 0, revenue: 0, taxPaid: 0, medals: [] },
+    stats: { batches: 0, bestQuality: 0, styles: [], styleCount: {}, completedStyles: [], givenL: 0, soldL: 0, revenue: 0, taxPaid: 0, medals: [] },
     log: [],
   };
   if (sandbox) log(s, 'Sandbox-Modus: unbegrenztes Geld und Zutaten, volle Ausrüstung. Die Qualitäts-Simulation läuft trotzdem.');
@@ -85,6 +87,8 @@ function finishBatches(s) {
     s.beers.push({ id: b.id, name: b.name, styleId: b.styleId, liters: b.liters, quality: b.quality, flaws: b.flaws, notes: b.notes,
       plato: b.calc.plato, abv: b.calc.abv, ibu: b.calc.ibu, ebc: b.calc.ebc, finishedDay: s.day });
     s.stats.bestQuality = Math.max(s.stats.bestQuality, b.quality);
+    addXp(s, brewXp(s, b), 'Sud ' + b.name);
+    if (!s.stats.completedStyles.includes(b.styleId)) s.stats.completedStyles.push(b.styleId);
     log(s, `„${b.name}“ ist fertig: Qualität ${b.quality}/100 (${qualityLabel(b.quality)}).` +
       (b.notes.length ? ' ' + b.notes.join(' ') : ''), b.quality >= 50 ? 'good' : 'bad');
   }
@@ -164,7 +168,7 @@ export function sell(s, beerId, liters) {
 export function summary(s) {
   return {
     day: s.day, cash: s.cash, reputation: s.reputation, stage: s.stage, chapter: CHAPTERS[s.chapter]?.title ?? 'Ende',
-    equipment: s.equipment, bestQuality: s.stats.bestQuality, gaerend: s.batches.filter(b => b.status === 'gaerend').length,
+    level: levelInfo(s), equipment: s.equipment, bestQuality: s.stats.bestQuality, gaerend: s.batches.filter(b => b.status === 'gaerend').length,
   };
 }
 export { GameError, qualityLabel };

@@ -21,7 +21,8 @@ function flushLog() {
 }
 function status() {
   const x = g.summary(s);
-  out(`\n${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ort: ${x.stage}`);
+  out(`\nLevel ${x.level.lvl} ${x.level.name} (${x.level.xp} XP${x.level.nextXp ? `, noch ${x.level.toNext} bis Level ${x.level.lvl + 1}` : ', Maximum'})`);
+  out(`${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ort: ${x.stage}`);
   if (s.mode === 'story') g.objectives(s).forEach(o => out(`  ${o.done ? '✔' : '○'} ${o.text}`));
   out(`Ausrüstung: ${Object.entries(s.equipment).map(([k, v]) => g.EQUIPMENT[k][v].name).join(' · ')}`);
   const inv = s.inventory;
@@ -31,7 +32,10 @@ function status() {
 }
 const HELP = `Befehle:
   status | hilfe | speichern | beenden
-  stile                         – Bierstile anzeigen
+  stile                         – alle Bierstile mit Level, Kursgebühr, Schwierigkeit
+  kurs <stil>                   – Kurs belegen (schaltet den Stil frei)
+  info <id>                     – Info-Text zu Zutat, Stil, Technik, Kennwert … (z. B. info citra, info ipa, info ibu, info extract)
+  level <1-8>                   – nur Sandbox: Können einstellen
   kaufen malz <id> <kg> | hopfen <id> <dolde|pellet|extrakt> <g> | hefe <id> [n] | desinfektion [n] | technik <kettle|fermenter|cooling> <stufe>
   brauen <stil> [dolde|pellet|extrakt] [liter]   – kauft fehlende Zutaten automatisch und setzt an
   warten [tage]                 – Zeit vergehen lassen (Standard 7)
@@ -46,7 +50,16 @@ function run(line) {
     switch (cmd) {
       case 'status': status(); break;
       case 'hilfe': out(HELP); break;
-      case 'stile': STYLES.forEach(x => out(`  ${x.id.padEnd(11)} ${x.name} – ${x.desc}`)); break;
+      case 'stile': STYLES.forEach(x => {
+        const m = g.STYLE_META[x.id]; const ok = g.isUnlocked(s, x.id);
+        out(`  ${ok ? '✔' : '🔒'} ${x.id.padEnd(13)} ${x.name.padEnd(16)} Schwierigkeit ${'★'.repeat(m.difficulty).padEnd(5)} ${ok ? 'freigeschaltet' : `Level ${m.minLevel}, Kurs ${m.cost} €`}`);
+      }); break;
+      case 'kurs': g.buyStyle(s, a[0]); break;
+      case 'level': g.setSandboxLevel(s, +a[0]); out(`  Level ${a[0]}`); break;
+      case 'info': {
+        const hit = g.findInfo(a[0] === 'extrakt' ? 'extract' : a[0] === 'dolde' ? 'whole' : a[0]);
+        if (hit) out(`\n  ${hit.title} [${hit.kind}]\n  ${hit.text}`); else out('  Dazu gibt es keinen Eintrag. Probiere z. B. citra, ipa, pellet, ibu, hygiene, pitch, infektion.'); break;
+      }
       case 'kaufen': {
         const [what, id, p3, p4] = a;
         if (what === 'malz') g.buyMalt(s, id, +p3);
@@ -63,7 +76,9 @@ function run(line) {
         g.buyForRecipe(s, r);
         const pv = g.previewBatch(s, r);
         out(`  Erwartet: ${pv.calc.abv.toFixed(1)} % vol, ${pv.calc.ibu.toFixed(0)} IBU (mit Hopfenalter), ${pv.calc.ebc.toFixed(0)} EBC, Hefe-Füllstand ${(pv.pitchRatio * 100).toFixed(0)} %`);
-        g.startBatch(s, r); break;
+        const batch = g.startBatch(s, r);
+        out(`  Kosten: ${batch.cost.total.toFixed(2)} € (Malz ${batch.cost.malt}, Hopfen ${batch.cost.hops}, Hefe ${batch.cost.yeast}, Energie/Desinfektion ${batch.cost.energy}) = ${batch.costPerLiter.toFixed(2)} €/L`);
+        break;
       }
       case 'warten': g.advanceDays(s, +a[0] || 7); break;
       case 'verschenken': g.give(s, +a[0], +a[1]); break;

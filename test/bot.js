@@ -3,7 +3,7 @@ import * as g from '../src/game/index.js';
 import { newRecipeFromStyle } from '../src/core/brew.js';
 
 const CHOICES = { opa_brief: 'buch', fest_einladung: 'zusagen', gewerbe: 'anmelden', keller_angebot: 'annehmen', wettbewerb: 'teilnehmen', lieferant: 'bauer' };
-const STYLE_CYCLE = ['helles', 'pils', 'weizen', 'maerzen', 'pale'];
+const WISH = ['helles', 'pils', 'weizen', 'maerzen', 'pale', 'koelsch'];
 
 export function playStory({ seed = 1, maxDays = 1500, verbose = false } = {}) {
   const s = g.newGame({ mode: 'story', seed });
@@ -22,7 +22,12 @@ export function playStory({ seed = 1, maxDays = 1500, verbose = false } = {}) {
     // Brauen, solange Platz ist (Garage im Winter Lager, im Sommer Ale)
     const slots = g.slotsOf(s) - s.batches.filter(b => b.status === 'gaerend').length;
     if (slots > 0 && s.cash > 60) {
-      const style = s.stats.styles.length < 3 || brewed % 4 === 0 ? STYLE_CYCLE[brewed % STYLE_CYCLE.length] : 'helles';
+      for (const w of WISH) { // Kurse belegen, sobald Level und Geld reichen
+        const m = g.STYLE_META[w];
+        if (!s.unlocked.includes(w) && g.levelOf(s.skill.xp).lvl >= m.minLevel && s.cash > m.cost + 250) g.buyStyle(s, w);
+      }
+      const cycle = WISH.filter(w => s.unlocked.includes(w));
+      const style = s.stats.styles.length < 3 || brewed % 4 === 0 ? cycle[brewed % cycle.length] : 'helles';
       const r = newRecipeFromStyle(style);
       r.batchL = s.equipment.kettle === 'topf' ? 20 : 40;
       try { g.buyForRecipe(s, r); g.startBatch(s, r); brewed++; } catch (e) { if (!(e instanceof g.GameError)) throw e; }
