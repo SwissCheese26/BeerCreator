@@ -422,3 +422,54 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 @media (max-width: 1100px) { .columns { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .app { grid-template-columns: 1fr; height: auto; } .sidebar { flex-direction: column; } .main { padding: 20px 16px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Rezept-Werkstatt ---------- */
+.brew-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+.brew-side { position: sticky; top: 12px; }
+.brew-side > h2:first-child, .brew-main > h2:first-child { margin-top: 0; }
+@media (max-width: 980px) { .brew-grid { grid-template-columns: 1fr; } .brew-side { position: static; } }
+.text-input { background: var(--card-2); border: none; border-radius: 8px; color: var(--text); font: inherit; padding: 7px 10px; width: 220px; max-width: 100%; outline: none; }
+.text-input:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.check-row { cursor: pointer; }
+.check-row input { width: 20px; height: 20px; accent-color: var(--accent-fill); flex: none; }
+.ing-row select.grow { min-width: 0; flex: 1; }
+.ing-row.wrap { flex-wrap: wrap; }
+.ing-row .kg { min-width: 58px; text-align: right; }
+.icon-btn { all: unset; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); font-size: 13px; flex: none; }
+.icon-btn:hover { background: rgba(214,59,47,.12); color: var(--red); }
+.icon-btn:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.recipe-chip { display: inline-flex; align-items: center; gap: 2px; }
+.recipe-chip .style-chip small { color: var(--text-2); font-weight: 500; font-size: 12px; }
+.recipe-chip.on .style-chip { border-color: var(--accent-fill); background: var(--accent-soft); }
+.chip-x { all: unset; cursor: pointer; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; color: var(--text-3); }
+.chip-x:hover { color: var(--red); background: rgba(214,59,47,.12); }
+.kv-grid .rg { display: block; font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.rv-ok { color: var(--green); } .rv-low, .rv-high { color: var(--orange); }
+.pot-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; border: 2px solid var(--accent-soft); }
+.pot-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 10px; }
+.pot-head small { color: var(--text-2); font-size: 12px; }
+.pot-num { font: 800 44px/1 var(--font-display); color: var(--accent); letter-spacing: -1px; }
+.pot-num span { font-size: 16px; font-weight: 600; color: var(--text-3); letter-spacing: 0; margin-left: 2px; }
+.pot-tier { display: flex; flex-direction: column; align-items: center; font-weight: 700; font-size: 13px; text-align: center; }
+.pot-tier span { font-size: 28px; line-height: 1.1; }
+.pot-parts { display: grid; gap: 10px; margin: 14px 0 6px; }
+.pot-part span { font-size: 13px; font-weight: 600; }
+.pot-part b { font-size: 13px; }
+.pot-part small { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 3px; line-height: 1.35; }
+.minibar { height: 6px; border-radius: 3px; background: var(--card-2); overflow: hidden; margin-top: 4px; }
+.minibar div { height: 100%; background: var(--accent-fill); border-radius: 3px; }
+.pot-card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin: 16px 0 8px; }
+.tricks { display: grid; gap: 6px; }
+.trick { display: flex; gap: 10px; align-items: flex-start; padding: 7px 8px; border-radius: 10px; background: var(--card-2); }
+.trick b { font-size: 13px; font-weight: 600; }
+.trick small { display: block; font-size: 11.5px; color: var(--text-2); line-height: 1.35; margin-top: 2px; }
+.trick .pts { font-size: 12px; font-weight: 700; color: var(--text-3); }
+.trick.ok { background: rgba(47,158,74,.12); } .trick.ok .check { background: var(--green); border-color: var(--green); } .trick.ok .pts { color: var(--green); }
+.trick.half .check { border-color: var(--accent-fill); color: var(--accent); font-size: 10px; }
+.expect { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.expect small { color: var(--text-2); font-size: 12px; }
+.expect > b { display: block; font: 800 26px var(--font-display); }
+.expect ul { margin: 6px 0; padding-left: 18px; font-size: 12.5px; color: var(--orange); }
+.expect p { margin: 6px 0 0; }
+.actions.col { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 14px; }
+.trick .grow { flex: 1; min-width: 0; }

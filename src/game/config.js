@@ -42,13 +42,15 @@ export function season(day) {
 
 // Absatzwege. ref = Referenzpreis €/L ab Brauerei, base = Liter pro Woche bei Ruf 50 und normaler Saison.
 export const CHANNELS = {
-  hof:      { name: 'Hofverkauf & Wochenmarkt', icon: '🧺', ref: 6.0, base: 25, minRep: 0,  legal: true,
-              text: 'Direkt an Nachbarn und auf dem Markt. Guter Preis, aber wenig Menge.' },
-  gastro:   { name: 'Gastronomie (Fass)',       icon: '🍻', ref: 4.5, base: 60, minRep: 15, legal: true,
+  hof:      { name: 'Hofverkauf & Wochenmarkt', icon: '🧺', ref: 6.0, base: 45, minRep: 0,  legal: true,
+              text: 'Direkt an Nachbarn und auf dem Markt. Guter Preis, aber begrenzte Menge.' },
+  gastro:   { name: 'Gastronomie (Fass)',       icon: '🍻', ref: 4.5, base: 140, minRep: 15, legal: true,
               text: 'Kneipen kaufen mehr, zahlen aber weniger pro Liter.' },
-  festival: { name: 'Festival-Stand',           icon: '🎪', ref: 9.0, base: 80, minRep: 25, legal: true, fee: 120, summer: true,
+  festival: { name: 'Festival-Stand',           icon: '🎪', ref: 9.0, base: 150, minRep: 25, legal: true, fee: 120, summer: true,
               text: 'Mai bis September. Top-Preis, aber 120 € Standgebühr pro Woche, in der du dort verkaufst.' },
-  schwarz:  { name: 'Unter der Hand',           icon: '🕶️', ref: 4.0, base: 30, minRep: 0,  legal: false,
+  abholen:  { name: 'Getränkehändler holt ab',  icon: '🚚', ref: 2.2, base: Infinity, minRep: 0, legal: true, unlimited: true, repFactor: 0.3,
+              text: 'Der Händler nimmt jede Menge mit – aber er holt selbst ab, liefert aus und will mitverdienen. Wenig Geld pro Liter.' },
+  schwarz:  { name: 'Unter der Hand',           icon: '🕶️', ref: 4.0, base: 40, minRep: 0,  legal: false,
               text: 'Bar auf die Hand, ohne Steuer – mit oder ohne Gewerbe. Das ist Steuerhinterziehung: Mit Gewerbe prüft der Zoll deine Bücher, das Risiko und die Strafen sind höher.' },
 };
 
@@ -90,7 +92,8 @@ export const TIER_ORDER = {
 
 export const MALT_PRICE = { pilsner: 1.9, pale: 2.0, wiener: 2.2, muenchner: 2.3, weizen: 2.2, rauch: 3.2,
   carapils: 3.0, carahell: 3.0, caramuench: 3.2, carafa: 4.2, roest: 3.8,
-  melanoidin: 3.4, weizendunkel: 2.5, roggen: 2.6, hafer: 2.4, sauermalz: 3.5, kandis: 4.5 };      // € / kg
+  melanoidin: 3.4, weizendunkel: 2.5, roggen: 2.6, hafer: 2.4, sauermalz: 3.5, kandis: 4.5,
+  pilsner_boden: 3.6, muenchner_boden: 3.9, maris: 3.4 };      // € / kg
 export const HOP_PRICE_PELLET = { hallertauer: 0.035, tettnanger: 0.04, saphir: 0.04, tradition: 0.03, perle: 0.028,
   magnum: 0.026, cascade: 0.045, citra: 0.08, mosaic: 0.085,
   saaz: 0.05, hersbruck: 0.036, northern: 0.03, fuggles: 0.04, goldings: 0.055 };                   // € / g

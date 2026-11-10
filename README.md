@@ -50,3 +50,11 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - **Abtei St. Gambrin (gegr. 1253, erfunden)**: Wer Ansehen ≥ 30 hat, ≥ 300 € gespendet hat, stabil gute klassische Biere braut und sauber bleibt, bekommt Besuch von Bruder Anselm → Dubbel-Rezept → Gemeinschaftssud mit Siegel (+40 % Preis, 30 % des Erlöses an die Abtei).
 - **Bierliga** (`src/game/league.js`): Rangliste mit 19 erfundenen Konkurrenten – du startest unten.
 - Steuer- und Rechtsregeln sind vereinfacht; alle Brauereien, Personen und die Abtei sind erfunden.
+
+## Rezept-Werkstatt (Brauen)
+
+- Rezept frei bauen: Malze (Anteile), Hopfengaben (Sorte, Form, Zeitpunkt, Gramm), Hefe, Stammwürze, Maischverfahren (Kombirast, Stufen, Ferulasäurerast, Dekoktion) und Reifung (kalte Lagerung, Flaschengärung, Kalthopfung, Holzfass).
+- **Potenzial** (0–100) = Höchstpunktzahl des Rezepts: Stiltreue 30, passende Zutaten 20, Hopfenaroma 10, Feinschliff 40 (Kniffe wie edles Grundmalz aus Bodenmälzung, ideales Maischverfahren, typische Zutat, Reifung). Standardrezepte liegen bei ca. 75–80, mit allen Kniffen sind über 92 („Trappisten-Niveau“) möglich.
+- Gärtemperatur, Hefemenge, Hygiene und Erfahrung ziehen davon ab; die Vorschau zeigt die erwartete Qualität.
+- **Sortiment**: Rezepte mit eigenem Namen speichern und wieder laden.
+- Neuer Absatzweg **Getränkehändler holt ab**: nimmt jede Menge, zahlt aber wenig.

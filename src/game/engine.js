@@ -229,13 +229,14 @@ export function channelState(s, ch) {
 export function channelDemand(s, ch) {
   if (s.mode === 'sandbox') return Infinity;
   const c = CHANNELS[ch];
+  if (c.unlimited) return Infinity;
   return Math.floor(c.base * (0.5 + s.reputation / 100) * season(s.day));
 }
 export const channelRoom = (s, ch) => Math.max(0, channelDemand(s, ch) - (s.week.sold[ch] || 0));
 /** Preis €/L ab Brauerei: Referenzpreis × Qualität × Ruf (× Klosterbonus). */
 export function priceFor(s, b, ch = 'hof') {
   const c = CHANNELS[ch];
-  return round2(c.ref * (0.6 + b.quality / 125) * (1 + s.reputation / 400) * (gambrinBeer(s, b) ? 1.4 : 1));
+  return round2(c.ref * (0.3 + b.quality / 80) * (1 + s.reputation / 400) * (gambrinBeer(s, b) ? 1.4 : 1));
 }
 /** Wahrscheinlichkeit, beim Schwarzverkauf erwischt zu werden (mit Gewerbe höher). */
 export const blackRisk = (s, liters) => s.license ? Math.min(0.5, 0.07 + liters / 250) : Math.min(0.4, 0.04 + liters / 400);
@@ -248,7 +249,9 @@ export function sell(s, beerId, liters, channel = defaultChannel(s)) {
   need(st.open, st.reason);
   need(liters > 0 && liters <= b.liters + 1e-9, `Nur ${b.liters} L von „${b.name}“ im Lager.`);
   const room = channelRoom(s, channel);
-  need(liters <= room + 1e-9, `${CHANNELS[channel].name}: Diese Woche kaufen die Leute höchstens noch ${Math.floor(room)} L.`);
+  need(liters <= room + 1e-9, Math.floor(room) <= 0
+    ? `${CHANNELS[channel].name}: Diese Woche ausverkauft. Nächste Woche wieder – oder lass den Getränkehändler abholen.`
+    : `${CHANNELS[channel].name}: Diese Woche kaufen die Leute höchstens noch ${Math.floor(room)} L.`);
   const c = CHANNELS[channel];
   if (c.fee && !sandbox && !s.week.festival) { spend(s, c.fee, 'die Standgebühr'); s.week.festival = true; }
   takeLiters(b, liters);
@@ -277,7 +280,7 @@ export function sell(s, beerId, liters, channel = defaultChannel(s)) {
   s.cash = round2(s.cash + revenue - tax - toAbbey);
   s.stats.soldL = round2(s.stats.soldL + liters); s.stats.revenue = round2(s.stats.revenue + revenue); s.stats.taxPaid = round2(s.stats.taxPaid + tax);
   if (!sandbox) { // Ruf entsteht durch Qualität, nicht durch Masse
-    let gain = liters / 10 * (b.quality - 65) / 30;
+    let gain = liters / 10 * (b.quality - 65) / 30 * (c.repFactor ?? 1);
     if (gain > 0) gain = Math.min(gain, 1.5 - s.week.rep);
     s.week.rep += Math.max(0, gain);
     s.reputation = round2(clamp(s.reputation + gain, 0, 100));

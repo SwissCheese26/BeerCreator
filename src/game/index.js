@@ -1,6 +1,7 @@
 export * from './engine.js';
 export * from './shop.js';
 export * from './batch.js';
+export * from './recipe.js';
 export * from './config.js';
 export { CHAPTERS, EVENTS, ENDINGS, GLOBAL_EVENTS, abbeyProgress, abbeyReady } from './story.js';
 export * from './progress.js';

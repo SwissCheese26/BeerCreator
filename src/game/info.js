@@ -21,6 +21,9 @@ const MALT_INFO = {
   hafer: 'Haferflocken: cremiger, weicher Körper und Trübung. Typisch in Witbier und New England IPA. Bis ca. 20 %.',
   sauermalz: 'Enthält Milchsäure und senkt den pH-Wert der Maische. Verbessert Enzymarbeit und Geschmack heller Biere und ist reinheitsgebotskonform. Bis ca. 10 %.',
   kandis: 'Zucker, der vollständig vergärt: macht Bier trockener und alkoholstärker, ohne Körper. Typisch für Tripel und Dubbel. Im Spiel vereinfacht wie Malz gerechnet.',
+  pilsner_boden: 'Pilsner Malz von der Tenne: langsam von Hand gekeimt und gewendet, wie vor 100 Jahren. Runder, vollmundiger, „brotiger“ – fast doppelt so teuer. Als Grundmalz hebt es das Potenzial jedes hellen Biers.',
+  muenchner_boden: 'Münchner Malz aus traditioneller Bodenmälzung: tiefes Brot- und Krustenaroma. Edles Grundmalz für Dunkel, Märzen und Bock.',
+  maris: 'Englische Traditions-Gerste, gemälzt wie früher: nussig, keksig, voll. Das edle Grundmalz für Pale Ale, Porter, Stout – und belgische Biere.',
 };
 
 const HOP_INFO = {
@@ -127,7 +130,7 @@ const METRIC_INFO = {
   cost: ['Sudkosten', 'Malz + Hopfen + Hefe + Energie/Wasser + Desinfektion. Geteilt durch die Fertigbiermenge ergibt das die Kosten pro Liter – dein Verkaufspreis sollte darüber liegen.'],
   honor: ['Ansehen (0–100)', 'Wie sehr man dir vertraut: Spenden, stabile Qualität und ehrliche Geschäfte steigern es, Schwarzverkauf und Skandale senken es. Hohes Ansehen öffnet Türen – zum Beispiel die der Abtei St. Gambrin.'],
   konstanz: ['Konstanz', 'Wie gleichmäßig deine letzten Sude geworden sind. Klöster und Großkunden schätzen ein Bier, das jedes Mal gleich gut schmeckt, mehr als wilde Experimente.'],
-  kanaele: ['Absatzwege', 'Hofverkauf (wenig Menge, guter Preis), Gastronomie (viel Menge, weniger pro Liter), Festivals (Sommer, Top-Preis, Standgebühr). Jeder Weg hat seine eigene Wochen-Nachfrage – Ruf und Saison machen sie größer.'],
+  kanaele: ['Absatzwege', 'Hofverkauf (wenig Menge, guter Preis), Gastronomie (viel Menge, weniger pro Liter), Festivals (Sommer, Top-Preis, Standgebühr) und der Getränkehändler, der alles abholt (jede Menge, aber wenig Geld pro Liter). Jeder andere Weg hat seine eigene Wochen-Nachfrage – Ruf und Saison machen sie größer.'],
   schwarzverkauf: ['Schwarzverkauf', 'Bier ohne Gewerbe und ohne Biersteuer zu verkaufen ist Steuerhinterziehung. Fliegt es auf, werden die Steuer nachgefordert, eine Geldstrafe fällig und die Ware beschlagnahmt – und dein Ansehen ist hin.'],
   spenden: ['Spenden', 'Geld oder Freibier für Kirche, Tafel, Kindergarten oder Feuerwehr bringt Ansehen und etwas Ruf. Viele kleine Spenden wirken besser als eine riesige auf einmal.'],
   trappist: ['Trappisten & Abteibier', 'Echte Trappistenbiere werden innerhalb von Klostermauern unter Aufsicht von Mönchen gebraut, die Gewinne gehen an soziale Zwecke; nur wenige Abteien weltweit dürfen das Siegel tragen. Laien arbeiten dort durchaus als Brauer mit. „Abteibier“ ist dagegen oft eine Lizenz. Im Spiel ist die Abtei St. Gambrin erfunden.'],

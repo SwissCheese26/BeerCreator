@@ -12,6 +12,16 @@ const CHOICES = {
 };
 const WISH = ['helles', 'pils', 'weizen', 'maerzen', 'pale', 'koelsch'];
 
+/** Rezept verfeinern: ideales Maischverfahren, Reifung, edles Grundmalz. */
+export function improve(r) {
+  g.setMashProgram(r, g.styleFit(r.styleId).mash.ideal);
+  r.reifung = g.styleFit(r.styleId).reif !== 'lagern'; // Lagerung kostet Tankzeit – bei Lagerbier lohnt sie sich für den Bot nicht
+  const base = { pilsner: 'pilsner_boden', muenchner: 'muenchner_boden', pale: 'maris' };
+  const m = [...r.malts].sort((a, b) => b.share - a.share).find(x => base[x.id]);
+  if (m) m.id = base[m.id];
+  return r;
+}
+
 /** Spielt das Tutorial mit den richtigen Eingaben durch. */
 export function playTutorial(s) {
   const input = { maischen: 67, gaeren: 'warm' };
@@ -31,6 +41,8 @@ export function playStory({ seed = 1, maxDays = 1500, verbose = false } = {}) {
       if (s.equipment.cooling === 'keine' && s.cash >= 280) g.buyGear(s, 'cooling', 'kuehlschrank');
       if (s.equipment.kettle === 'topf' && s.cash >= 450 + 60) g.buyGear(s, 'kettle', 'kessel50');
       if (s.chapter > 4 && s.equipment.fermenter === 'eimer' && s.cash >= 260 + 100) g.buyGear(s, 'fermenter', 'edelstahl');
+      if (s.chapter > 4 && s.equipment.kettle === 'kessel50' && s.cash >= 1800 + 300) g.buyGear(s, 'kettle', 'kessel100');
+      if (s.chapter > 4 && s.equipment.fermenter === 'edelstahl' && s.equipment.kettle === 'kessel100' && s.cash >= 1100 + 300) g.buyGear(s, 'fermenter', 'konisch');
     }
 
     // Brauen, solange Platz ist
@@ -43,14 +55,15 @@ export function playStory({ seed = 1, maxDays = 1500, verbose = false } = {}) {
       const cycle = WISH.filter(w => s.unlocked.includes(w));
       const style = s.stats.styles.length < 3 || brewed % 4 === 0 ? cycle[brewed % cycle.length] : 'helles';
       const r = newRecipeFromStyle(style);
-      r.batchL = s.equipment.kettle === 'topf' ? 20 : 40;
+      r.batchL = g.EQUIPMENT.kettle[s.equipment.kettle].maxBatchL;
+      if (s.chapter >= 4) improve(r); // ein lernender Brauer verfeinert seine Rezepte
       try { g.buyForRecipe(s, r); g.startBatch(s, r); brewed++; } catch (e) { if (!(e instanceof g.GameError)) throw e; }
     }
 
     // Bier abgeben: im Fest-Kapitel verschenken, sonst über die offenen Absatzwege verkaufen
     for (const beer of s.beers.filter(b => b.liters > 0.01)) {
       if (ch === 'fest') { g.give(s, beer.id, Math.min(beer.liters, 10)); continue; }
-      for (const c of ['gastro', 'hof', 'festival', 'schwarz']) {
+      for (const c of ['gastro', 'hof', 'festival', 'schwarz', 'abholen']) {
         if (!g.channelState(s, c).open || (c === 'festival' && beer.liters < 25) || (c === 'schwarz' && s.license)) continue;
         const room = Math.floor(g.channelRoom(s, c));
         const l = Math.min(Math.floor(beer.liters), room);

@@ -1,10 +1,11 @@
 // Sud starten, Qualität bewerten, Fehlaromen auswürfeln.
 import { HOP_FORMS, YEASTS, STYLES, byId } from '../core/data.js';
 import { compute, rangeStatus, setIbu } from '../core/brew.js';
-import { EQUIPMENT, YEAST_PACK_CELLS, BOTTLING_LOSS, STYLE_AROMA, FERMENT_DAYS, ambientTemp, MALT_PRICE, YEAST_PRICE, SANITIZER_PRICE, ENERGY_PER_L, PACKAGING_PER_L } from './config.js';
+import { EQUIPMENT, YEAST_PACK_CELLS, BOTTLING_LOSS, FERMENT_DAYS, ambientTemp, MALT_PRICE, YEAST_PRICE, SANITIZER_PRICE, ENERGY_PER_L, PACKAGING_PER_L } from './config.js';
 import { STYLE_META, levelOf, isUnlocked } from './progress.js';
 import { hopKey, hopPrice, buyMalt, buyHop, buyYeast, buySanitizer } from './shop.js';
 import { need, rand, log, clamp, round2, spend } from './state.js';
+import { recipePotential, aromaPoints, reifungOf, optionCost } from './recipe.js';
 
 /** Laufende Kosten eines Suds, die beim Ansetzen bezahlt werden: Energie/Wasser und Flaschen/Kronkorken/Etiketten. */
 export const runCost = liters => round2(liters * (ENERGY_PER_L + PACKAGING_PER_L));
@@ -59,18 +60,59 @@ export function previewBatch(s, recipe) {
   return { calc, recipe: r, freshness, missing, used, packsNeeded, packsHave, pitchRatio: Math.min(1, packsHave * YEAST_PACK_CELLS / calc.yeast.cellsBillion) };
 }
 
+/** Gärtemperatur, Dauer und Können – gemeinsam für Sud und Vorschau. rnd = Zufall (bei der Vorschau: null → Erwartungswert). */
+function execution(s, recipe, pv, { fixedTemp = null, rnd = null } = {}) {
+  const meta = STYLE_META[recipe.styleId];
+  const yeast = byId(YEASTS, recipe.yeastId), c = pv.calc;
+  const reif = reifungOf(recipe);
+  const fermentDays = Math.round((FERMENT_DAYS[yeast.id] ?? 14) + Math.max(0, c.plato - 14) * 1.5);
+  const readyIn = fermentDays + (reif?.days || 0);
+  const control = EQUIPMENT.cooling[s.equipment.cooling].control;
+  const mid = (yeast.tMin + yeast.tMax) / 2;
+  const ambient = ambientTemp(s.day + fermentDays / 2, !!s.flags.keller);
+  const fermTemp = fixedTemp ?? (control === 0 ? ambient : control === 1 ? mid + (rnd ? rnd() * 3 - 1.5 : 0) : mid);
+  const dev = Math.max(0, yeast.tMin - fermTemp, fermTemp - yeast.tMax);
+  const temp = 20 * Math.max(0, 1 - dev / 6);
+  const pitch = 10 * clamp((pv.pitchRatio - 0.4) / 0.6, 0, 1);
+  const lvl = skillLevel(s);
+  const complexity = Math.max(0, meta.difficulty - lvl * 0.8) * 3;
+  const tries = s.stats.styleCount?.[recipe.styleId] || 0;
+  const practice = Math.max(0, 3 - tries) * meta.difficulty * 1.5 * Math.max(0.3, 1 - 0.1 * lvl);
+  const swingAmp = Math.max(0, 10 - lvl * 1.2);
+  return { yeast, readyIn, fermTemp, dev, temp, pitch, lvl, complexity, tries, practice, swingAmp, meta };
+}
+
+/** Vorschau fürs Brauen: Potenzial des Rezepts und was Gärung, Hefe und Erfahrung voraussichtlich abziehen. */
+export function forecast(s, recipe) {
+  const pv = previewBatch(s, recipe);
+  const pot = recipePotential(pv.recipe);
+  const ex = execution(s, recipe, pv);
+  const ded = [];
+  if (ex.temp < 19.5) ded.push({ label: `Gärtemperatur ca. ${ex.fermTemp.toFixed(0)} °C (die Hefe mag ${ex.yeast.temp})`,
+    pts: 20 - ex.temp + (ex.fermTemp > ex.yeast.tMax + 2 ? 10 : ex.fermTemp < ex.yeast.tMin - 2 ? 8 : 0) });
+  if (ex.pitch < 9.5) ded.push({ label: 'Zu wenig Hefe', pts: 10 - ex.pitch });
+  if (ex.complexity + ex.practice > 0.5) ded.push({ label: ex.tries === 0 ? 'Erster Sud dieses Stils / Erfahrung' : 'Übung und Erfahrung', pts: ex.complexity + ex.practice });
+  const sure = pot.total - ded.reduce((a, d) => a + d.pts, 0);
+  const infection = Math.pow(1 - hygieneOf(s, true), 2) * 0.6;
+  return { potential: pot, deductions: ded.map(d => ({ ...d, pts: round2(d.pts) })),
+    low: Math.round(clamp(sure - ex.swingAmp, 0, 100)), high: Math.round(clamp(sure + ex.swingAmp, 0, 100)),
+    infection, readyIn: ex.readyIn, preview: pv };
+}
+
 export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedTemp = null } = {}) {
   const meta = STYLE_META[recipe.styleId];
   need(meta, 'Unbekannter Bierstil.');
   need(isUnlocked(s, recipe.styleId), `Den Stil „${byId(STYLES, recipe.styleId).name}“ hast du noch nicht gelernt. Belege den Kurs (Level ${meta.minLevel}, ${meta.cost} €).`);
   const maxL = EQUIPMENT.kettle[s.equipment.kettle].maxBatchL;
   need(recipe.batchL <= maxL, `Dein ${EQUIPMENT.kettle[s.equipment.kettle].name} fasst höchstens ${maxL} L Ausschlag.`);
+  need(recipe.batchL >= 5, 'Mindestens 5 L pro Sud.');
   need(s.batches.filter(b => b.status === 'gaerend').length < slotsOf(s), 'Alle Gärplätze sind belegt – warte auf einen fertigen Sud oder kaufe einen größeren Gärtank.');
   const pv = previewBatch(s, recipe);
+  need(pv.calc.grainKg > 0, 'Ohne Malz kein Bier – füge mindestens ein Malz hinzu.');
   need(pv.missing.length === 0, `Es fehlt: ${pv.missing.join(', ')}.`);
 
   const sandbox = s.mode === 'sandbox';
-  const running = runCost(recipe.batchL);
+  const running = round2(runCost(recipe.batchL) + optionCost(recipe));
   need(sandbox || s.cash >= running - 1e-9, `Für Energie, Wasser und Flaschen fehlen dir ${round2(running - s.cash)} € (${running} € nötig).`);
   if (!sandbox) { // Verbrauch
     spend(s, running, 'Energie und Flaschen');
@@ -82,47 +124,28 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   const sanitized = s.inventory.sanitizer > 0 || sandbox;
   if (sanitized && !sandbox) s.inventory.sanitizer--;
 
-  const style = byId(STYLES, recipe.styleId), yeast = byId(YEASTS, recipe.yeastId);
+  const style = byId(STYLES, recipe.styleId);
   const c = pv.calc;
   const flaws = [], notes = [];
-  const pts = { style: 0, aroma: 0, temp: 0, pitch: 0, hygiene: 0 };
-
-  // Stil (40): 4 Kennwerte à 10 Punkte
+  // Potenzial des Rezepts (mit der echten Frische der Lagerhopfen)
+  const pot = recipePotential(pv.recipe);
   for (const [key, val] of [['plato', c.plato], ['abv', c.abv], ['ibu', c.ibu], ['ebc', c.ebc]]) {
-    const [lo, hi] = style.ranges[key];
-    const out = Math.max(0, lo - val, val - hi);
-    pts.style += 10 * Math.max(0, 1 - out / (hi - lo));
-    const st = rangeStatus(val, [lo, hi]);
+    const st = rangeStatus(val, style.ranges[key]);
     if (st !== 'ok') notes.push(`${{ plato: 'Stammwürze', abv: 'Alkohol', ibu: 'Bittere', ebc: 'Farbe' }[key]} ${st === 'low' ? 'zu niedrig' : 'zu hoch'} für ${style.name}.`);
   }
+  if (aromaPoints(pv.recipe) < 6) { flaws.push('flach'); notes.push('Zu wenig Hopfenaroma – späte Gaben mit echtem Hopfen helfen (Extrakt hat kein Aroma).'); }
 
-  // Aroma (10): späte Gaben, Extrakt liefert nichts
-  const lateDose = pv.recipe.hops.reduce((sum, h, i) =>
-    sum + (h.time <= 15 ? h.gPerL * HOP_FORMS[h.form || 'pellet'].aroma * pv.freshness[i] : 0), 0);
-  const aromaNeed = STYLE_AROMA[recipe.styleId] ?? 0.1;
-  pts.aroma = aromaNeed <= 0.03 ? 10 : 10 * clamp(lateDose / aromaNeed, 0, 1);
-  if (pts.aroma < 6) { flaws.push('flach'); notes.push('Zu wenig Hopfenaroma – späte Gaben mit echtem Hopfen helfen (Extrakt hat kein Aroma).'); }
-
-  // Gärtemperatur (20)
-  const control = EQUIPMENT.cooling[s.equipment.cooling].control;
-  const mid = (yeast.tMin + yeast.tMax) / 2;
-  const readyIn = Math.round((FERMENT_DAYS[yeast.id] ?? 14) + Math.max(0, c.plato - 14) * 1.5);
-  const ambient = ambientTemp(s.day + readyIn / 2, !!s.flags.keller);
-  const fermTemp = fixedTemp ?? (control === 0 ? ambient : control === 1 ? mid + (rand(s) * 3 - 1.5) : mid);
-  const dev = Math.max(0, yeast.tMin - fermTemp, fermTemp - yeast.tMax);
-  pts.temp = 20 * Math.max(0, 1 - dev / 6);
-  if (fermTemp > yeast.tMax + 2) { flaws.push('ester'); notes.push(`Gärung zu warm (${fermTemp.toFixed(1)} °C): Fuselalkohole und Lösungsmittel-Ester.`); }
-  else if (fermTemp < yeast.tMin - 2) { flaws.push('traege'); notes.push(`Gärung zu kalt (${fermTemp.toFixed(1)} °C): träge, dünn, evtl. steckengeblieben.`); }
-
-  // Hefe (10)
-  pts.pitch = 10 * clamp((pv.pitchRatio - 0.4) / 0.6, 0, 1);
+  const ex = execution(s, recipe, pv, { fixedTemp, rnd: () => rand(s) });
+  const { fermTemp, readyIn, lvl, complexity, practice, tries } = ex;
+  const pts = { potential: pot.total, temp: ex.temp, pitch: ex.pitch, hygiene: 0 };
+  if (fermTemp > ex.yeast.tMax + 2) { flaws.push('ester'); notes.push(`Gärung zu warm (${fermTemp.toFixed(1)} °C): Fuselalkohole und Lösungsmittel-Ester.`); }
+  else if (fermTemp < ex.yeast.tMin - 2) { flaws.push('traege'); notes.push(`Gärung zu kalt (${fermTemp.toFixed(1)} °C): träge, dünn, evtl. steckengeblieben.`); }
   if (pv.pitchRatio < 0.75) { flaws.push('unterhefung'); notes.push('Zu wenig Hefe angestellt: Stress, Schwefel, Fruchtester.'); }
 
-  // Hygiene (20): Infektionswurf
+  // Hygiene: Infektionswurf
   const hyg = hygieneOf(s, sanitized);
   const infected = !tutorial && rand(s) < Math.pow(1 - hyg, 2) * 0.6;
-  pts.hygiene = infected ? -25 : 20;
-  if (infected) { flaws.push('infektion'); notes.push('Infektion! Das Bier ist sauer/butterig – die Hygiene hat nicht gereicht.'); }
+  if (infected) { pts.hygiene = -45; flaws.push('infektion'); notes.push('Infektion! Das Bier ist sauer/butterig – die Hygiene hat nicht gereicht.'); }
 
   // Hopfenqualität
   const gTotal = c.hops.reduce((a, h) => a + h.g, 0) || 1;
@@ -135,31 +158,26 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   if (c.ibu > 0 && extractIbu / c.ibu > 0.7) { flaws.push('hart'); extra -= 8; notes.push('Bittere fast nur aus Extrakt: hart und kratzig, ohne Hopfenkomplexität.'); }
 
   // Können: fehlende Erfahrung bei schwierigen Stilen und Ungenauigkeit bei niedrigem Level
-  const lvl = skillLevel(s);
-  const complexity = Math.max(0, meta.difficulty - lvl * 0.8) * 3;
-  const swing = (rand(s) * 2 - 1) * Math.max(0, 10 - lvl * 1.2);
+  const swing = (rand(s) * 2 - 1) * ex.swingAmp;
   if (complexity > 2) notes.push(`Dir fehlt Erfahrung für diesen Stil (Schwierigkeit ${meta.difficulty}, du bist Level ${lvl}): Abzug ${complexity.toFixed(0)} Punkte.`);
-  const counts = (s.stats.styleCount ||= {});
-  const tries = counts[recipe.styleId] || 0;
-  const practice = Math.max(0, 3 - tries) * meta.difficulty * 1.5 * Math.max(0.3, 1 - 0.1 * lvl);
   if (practice > 2) notes.push(tries === 0 ? 'Der erste Sud dieses Stils: Dir fehlt noch die Übung mit den Besonderheiten.' : 'Du übst diesen Stil noch – mit jedem Sud wird es besser.');
   extra += swing - complexity - practice;
-  counts[recipe.styleId] = tries + 1;
+  (s.stats.styleCount ||= {})[recipe.styleId] = tries + 1;
 
-  let quality = Math.round(clamp(Object.values(pts).reduce((a, b) => a + b, 0) + extra, 0, 100));
+  let quality = Math.round(clamp(pot.total - (20 - ex.temp) - (10 - ex.pitch) + pts.hygiene + extra, 0, 100));
   if (tutorial) quality = Math.round(clamp(quality, 55, 72)); // Das erste, geführte Bier gelingt ordentlich – mit Luft nach oben
 
   // Kosten des Suds (zu aktuellen Preisen)
   const maltCost = c.malts.reduce((a, m) => a + MALT_PRICE[m.id] * m.kg, 0);
   const hopCost = c.hops.reduce((a, h) => a + hopPrice(s, h.id, h.form) * h.g, 0);
   const yeastCost = Math.min(pv.packsNeeded, pv.packsHave) * YEAST_PRICE[recipe.yeastId];
-  const energyCost = ENERGY_PER_L * recipe.batchL + (sanitized ? SANITIZER_PRICE : 0);
+  const energyCost = ENERGY_PER_L * recipe.batchL + (sanitized ? SANITIZER_PRICE : 0) + optionCost(recipe);
   const packCost = PACKAGING_PER_L * recipe.batchL;
   const cost = { malt: round2(maltCost), hops: round2(hopCost), yeast: round2(yeastCost), energy: round2(energyCost), packaging: round2(packCost),
     total: round2(maltCost + hopCost + yeastCost + energyCost + packCost) };
   const batch = {
     id: s.nextId++, name: name || recipe.name, styleId: recipe.styleId, status: 'gaerend', startDay: s.day, readyDay: s.day + readyIn,
-    liters: round2(recipe.batchL * BOTTLING_LOSS), quality, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
+    liters: round2(recipe.batchL * BOTTLING_LOSS), quality, potential: pot.total, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
     calc: { plato: c.plato, abv: c.abv, ibu: c.ibu, ebc: c.ebc, fgP: c.fgP },
     cost, costPerLiter: round2(cost.total / (recipe.batchL * BOTTLING_LOSS)), tutorial,
   };
@@ -168,7 +186,7 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   if (!s.stats.styles.includes(recipe.styleId)) s.stats.styles.push(recipe.styleId);
   s.litersYear += recipe.batchL;
   s.hygiene = Math.min(0.6, s.hygiene + 0.02); // Übung macht sauberer
-  log(s, `Sud „${batch.name}“ angesetzt – fertig in ${readyIn} Tagen. Ergebnis erst nach der Reifung.`);
+  log(s, `Sud „${batch.name}“ angesetzt (Potenzial ${pot.total}) – fertig in ${readyIn} Tagen. Ergebnis erst nach der Reifung.`);
   return batch;
 }
 

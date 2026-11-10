@@ -1,7 +1,7 @@
 // Grafische Oberfläche für Story- und Sandbox-Modus: Dashboard mit Kacheln, Tutorial, Panels.
 import * as g from '../game/index.js';
 import { MALTS, HOPS, HOP_FORMS, YEASTS, STYLES, byId } from '../core/data.js';
-import { newRecipeFromStyle, ebcToHex } from '../core/brew.js';
+import { newRecipeFromStyle, ebcToHex, rangeStatus } from '../core/brew.js';
 
 const $ = id => document.getElementById(id);
 const esc = x => String(x ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -49,7 +49,7 @@ const GOAL_HINT = {
 const WIKI_KINDS = { style: 'Bierstile', malt: 'Malze', hop: 'Hopfen', form: 'Hopfenformen', yeast: 'Hefen', gear: 'Ausrüstung', metric: 'Begriffe', flaw: 'Fehlaromen' };
 
 let s = null, view = 'home', onExit = () => {}, overlay = null, mashTemp = 60;
-const brewForm = { styleId: null, form: 'pellet', liters: 20 };
+const brewForm = { recipe: null }; // Rezept, das gerade in der Werkstatt bearbeitet wird
 const wiki = { kind: 'style', q: '' };
 const has = f => g.hasFeature(s, f);
 
@@ -61,7 +61,7 @@ function save() { try { localStorage.setItem(KEY(s.mode), JSON.stringify(s)); } 
 export function openGame(mode, fresh, exit, breweryName) {
   onExit = exit;
   s = (!fresh && loadGame(mode)) || g.newGame({ mode, seed: Date.now() % 100000, breweryName });
-  view = 'home'; overlay = null; brewForm.styleId = null;
+  view = 'home'; overlay = null; brewForm.recipe = null;
   save(); render();
 }
 
@@ -224,57 +224,130 @@ const panel = (icon, title, sub, body) => `<div class="panel-head"><span class="
 const group = (title, inner, extra = '') => `<h2>${title}${extra}</h2><div class="group">${inner}</div>`;
 const empty = t => `<div class="row empty">${t}</div>`;
 
+function freshRecipe(styleId) {
+  const r = newRecipeFromStyle(styleId);
+  r.batchL = brewForm.recipe?.batchL || 20;
+  r.mashProgram = g.mashProgramOf(r);
+  r.reifung = false;
+  return r;
+}
 function currentRecipe() {
   const avail = STYLES.filter(x => g.isUnlocked(s, x.id));
-  if (!brewForm.styleId || !g.isUnlocked(s, brewForm.styleId)) brewForm.styleId = avail[0].id;
-  const r = newRecipeFromStyle(brewForm.styleId);
-  r.batchL = brewForm.liters;
-  g.setHopForm(r, brewForm.form);
+  if (!brewForm.recipe || !g.isUnlocked(s, brewForm.recipe.styleId)) brewForm.recipe = freshRecipe(avail[0].id);
+  const maxL = g.EQUIPMENT.kettle[s.equipment.kettle].maxBatchL;
+  const r = brewForm.recipe;
+  r.batchL = Math.min(Math.max(5, Math.round(+r.batchL || 20)), maxL);
   return { r, avail };
 }
 
+const HOP_TIMES = [90, 75, 60, 45, 30, 20, 15, 10, 5, 0];
+const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
+const rangeCls = (v, rg) => ({ ok: 'ok', low: 'low', high: 'high' }[rangeStatus(v, rg)]);
+
 function brewView() {
+  const sandbox = s.mode === 'sandbox';
   const maxL = g.EQUIPMENT.kettle[s.equipment.kettle].maxBatchL;
-  brewForm.liters = Math.min(Math.max(5, brewForm.liters), maxL);
   const { r, avail } = currentRecipe();
   const now = g.previewBatch(s, r);
-  let pv = now, buyCost = 0, buyError = '';
-  if (s.mode !== 'sandbox' && now.missing.length) { // Vorschau, als wäre das Fehlende schon gekauft
-    const sim = structuredClone(s);
-    try { g.buyForRecipe(sim, r); pv = g.previewBatch(sim, r); buyCost = s.cash - sim.cash; } catch (e) { buyError = e.message; }
+  let sim = s, buyCost = 0, buyError = '';
+  if (!sandbox && now.missing.length) { // Vorschau, als wäre das Fehlende schon gekauft
+    sim = structuredClone(s);
+    try { g.buyForRecipe(sim, r); buyCost = s.cash - sim.cash; } catch (e) { buyError = e.message; sim = s; }
   }
-  const run = s.mode === 'sandbox' ? 0 : g.runCost(r.batchL);
-  const st = byId(STYLES, r.styleId);
-  const info = g.getInfo('style', r.styleId);
+  const fc = g.forecast(sim, r);
+  const pot = fc.potential, c = fc.preview.calc;
+  const st = byId(STYLES, r.styleId), fit = g.styleFit(r.styleId);
+  const run = sandbox ? 0 : g.runCost(r.batchL) + g.optionCost(r);
   const free = g.slotsOf(s) - s.batches.filter(b => b.status === 'gaerend').length;
-  const c = pv.calc;
+  const reif = g.REIFUNG[fit.reif];
+  const recipes = s.recipes || [];
 
-  let html = `<div class="style-picker">${avail.map(x => `<button class="style-chip ${x.id === r.styleId ? 'on' : ''}" data-style-pick="${x.id}">
+  // Rezepte & Stile
+  let html = recipes.length ? `<h2>📒 Dein Sortiment</h2><div class="style-picker">${recipes.map(x => {
+      const sx = byId(STYLES, x.styleId);
+      return `<span class="recipe-chip ${x.name === r.name && x.styleId === r.styleId ? 'on' : ''}"><button class="style-chip" data-load-recipe="${esc(x.name)}">
+        <span class="dot" style="background:${ebcToHex((sx.ranges.ebc[0] + sx.ranges.ebc[1]) / 2)}"></span>${esc(x.name)}<small>${esc(sx.name)}</small></button>
+        <button class="chip-x" data-action="delRecipe" data-name="${esc(x.name)}" title="Rezept löschen" aria-label="Rezept ${esc(x.name)} löschen">✕</button></span>`;
+    }).join('')}</div>` : '';
+  html += `<h2>Neues Rezept aus Bierstil</h2><div class="style-picker">${avail.map(x => `<button class="style-chip ${x.id === r.styleId ? 'on' : ''}" data-style-pick="${x.id}">
       <span class="dot" style="background:${ebcToHex((x.ranges.ebc[0] + x.ranges.ebc[1]) / 2)}"></span>${esc(x.name)}</button>`).join('')}
       ${has('kurse') ? '<button class="style-chip more" data-go="courses">🎓 mehr Stile …</button>' : ''}</div>`;
-  html += group('Dein Sud', `
-    <div class="row"><span class="grow"><span class="row-label">${esc(st.name)}</span><div class="sub">${esc(info?.text || st.desc)}</div></span></div>
-    <div class="row"><span class="grow row-label">🌿 Hopfenform<div class="sub">${esc(g.getInfo('form', brewForm.form)?.text || '')}</div></span>
-      <select id="bForm">${Object.values(HOP_FORMS).map(f => `<option value="${f.id}" ${f.id === brewForm.form ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>
+
+  // Linke Spalte: Rezept bearbeiten
+  const yeastOpts = YEASTS.map(y => opt(y.id, `${y.name}${fit.yeast.ideal.includes(y.id) ? ' ★ typisch' : fit.yeast.ok?.includes(y.id) ? ' (geht)' : ''}`, y.id === r.yeastId)).join('');
+  let left = group('📝 Rezept', `
+    <div class="row"><span class="grow row-label">Name<div class="sub">So heißt das Bier im Lager und beim Verkauf.</div></span>
+      <input type="text" id="bName" class="text-input" maxlength="40" value="${esc(r.name)}" placeholder="z. B. Diplom Pils"></div>
+    <div class="row"><span class="grow row-label">${esc(st.name)}<div class="sub">${esc(st.desc)} · Ziel: ${st.ranges.plato.join('–')} °P · ${st.ranges.ibu.join('–')} IBU · ${st.ranges.ebc.join('–')} EBC</div></span></div>
     <div class="row"><span class="grow row-label">🪣 Menge<div class="sub">${esc(g.EQUIPMENT.kettle[s.equipment.kettle].name)}: max. ${maxL} L</div></span>
-      <label class="sub"><input type="number" id="bLiters" min="5" max="${maxL}" step="1" value="${brewForm.liters}"> L</label></div>`);
-  html += group('So wird es (erwartet)', `<div class="kv-grid">
-      <div><small>Alkohol</small><b>${f1.format(c.abv)} %</b></div>
-      <div><small>Stammwürze</small><b>${f1.format(c.plato)} °P</b></div>
-      <div><small>Bittere</small><b>${f0.format(c.ibu)} IBU</b></div>
-      <div><small>Farbe</small><b><span class="swatch-inline" style="background:${ebcToHex(c.ebc)}"></span>${f0.format(c.ebc)} EBC</b></div>
-      <div><small>Hefe</small><b>${f0.format(pv.pitchRatio * 100)} %</b></div>
-    </div>
-    <div class="row"><span class="sub">Zielbereich ${esc(st.name)}: ${st.ranges.plato.join('–')} °P · ${st.ranges.ibu.join('–')} IBU · ${st.ranges.ebc.join('–')} EBC.</span></div>`);
-  html += group('Kosten', (now.missing.length && s.mode !== 'sandbox'
-    ? `<div class="row"><span class="grow">🛒 Fehlende Zutaten (${esc(now.missing.join(', '))})</span><b>${buyError ? '–' : eur(buyCost)}</b></div>` : '') +
-    (s.mode !== 'sandbox' ? `<div class="row"><span class="grow">⚡ Energie, Wasser, Flaschen &amp; Kronkorken</span><b>${eur(run)}</b></div>
-      <div class="row"><span class="grow row-label">Zusammen</span><b>${eur((buyError ? 0 : buyCost) + run)}</b></div>` : '<div class="row empty">Sandbox: alles gratis.</div>'));
+      <label class="sub"><input type="number" id="bLiters" min="5" max="${maxL}" step="1" value="${r.batchL}"> L</label></div>
+    <div class="row"><span class="grow row-label">🍯 Stammwürze<div class="sub">Wie viel Malzzucker in der Würze steckt – bestimmt Alkohol und Körper.</div></span>
+      <label class="sub"><input type="number" id="bPlato" min="4" max="30" step="0.1" value="${f1.format(r.plato).replace(',', '.')}"> °P</label></div>
+    <div class="row"><span class="grow row-label">🧫 Hefe<div class="sub">${esc(byId(YEASTS, r.yeastId).temp)} · Endvergärung ca. ${byId(YEASTS, r.yeastId).attenuation} %</div></span>
+      <select id="bYeast">${yeastOpts}</select></div>
+    <div class="row"><span class="grow row-label">🌡️ Maischverfahren<div class="sub">${esc(g.MASH_PROGRAMS[g.mashProgramOf(r)].text)}${g.MASH_PROGRAMS[g.mashProgramOf(r)].costPerL ? ` (+${eur(g.MASH_PROGRAMS[g.mashProgramOf(r)].costPerL * r.batchL)} Energie)` : ''}</div></span>
+      <select id="bMash">${Object.entries(g.MASH_PROGRAMS).map(([id, m]) => opt(id, m.name, id === g.mashProgramOf(r))).join('')}</select></div>
+    <label class="row check-row"><input type="checkbox" id="bReif" ${r.reifung ? 'checked' : ''}><span class="grow row-label">⏳ ${esc(reif.name)}<div class="sub">${esc(reif.text)} +${reif.days} Tage im Gärtank, +${eur(reif.costPerL * r.batchL)}.</div></span></label>`);
+
+  const maltRows = r.malts.map((m, i) => {
+    const info = byId(MALTS, m.id), cm = c.malts[i];
+    return `<div class="row ing-row"><span class="dot big" style="background:${ebcToHex(info.ebc * 2)}"></span>
+      <select data-malt="${i}" class="grow">${MALTS.map(x => opt(x.id, `${x.premium ? '✨ ' : ''}${x.name} · ${f2.format(g.MALT_PRICE[x.id])} €/kg`, x.id === m.id)).join('')}</select>
+      <label class="sub"><input type="number" data-share="${i}" min="0" max="100" step="1" value="${Math.round(m.share)}"> %</label>
+      <span class="sub kg ${cm && cm.pct > cm.maxPct + 0.05 ? 'warn-text' : ''}">${cm ? f2.format(cm.kg) + ' kg' : ''}</span>
+      <button class="icon-btn" data-action="delMalt" data-i="${i}" title="Malz entfernen" aria-label="Malz entfernen">✕</button></div>`;
+  }).join('');
+  left += group('🌾 Malz', maltRows + `<div class="row"><button class="btn" data-action="addMalt">＋ Malz</button>
+    <span class="sub grow">Anteile werden automatisch auf 100 % gerechnet · ✨ = edles Grundmalz</span></div>`);
+
+  const hopRows = r.hops.map((h, i) => {
+    const ch = c.hops[i];
+    return `<div class="row ing-row wrap">
+      <select data-hop="${i}" class="grow">${HOPS.map(x => opt(x.id, `${x.name} · ${x.note}`, x.id === h.id)).join('')}</select>
+      <select data-hform="${i}">${Object.values(HOP_FORMS).map(f => opt(f.id, f.name, f.id === (h.form || 'pellet'))).join('')}</select>
+      <select data-htime="${i}">${HOP_TIMES.map(t => opt(t, t === 0 ? 'Whirlpool' : `${t} min`, t === h.time)).join('')}</select>
+      <label class="sub"><input type="number" data-hg="${i}" min="0" step="1" value="${Math.round(h.gPerL * r.batchL)}"> g</label>
+      <span class="sub kg">${ch ? f0.format(ch.ibu) + ' IBU' : ''}</span>
+      <button class="icon-btn" data-action="delHop" data-i="${i}" title="Hopfengabe entfernen" aria-label="Hopfengabe entfernen">✕</button></div>`;
+  }).join('');
+  left += group('🌿 Hopfen', hopRows + `<div class="row"><button class="btn" data-action="addHop">＋ Hopfengabe</button>
+    <span class="sub grow">Lange Kochzeit = Bittere, kurz/Whirlpool = Aroma. Extrakt bittert nur.</span></div>`);
+
+  const kv = (label, val, rg, txt) => `<div><small>${label}</small><b class="${rg ? 'rv-' + rangeCls(val, rg) : ''}">${txt}</b>${rg ? `<span class="rg">${rg.join('–')}</span>` : ''}</div>`;
+  left += group('🔬 So wird es', `<div class="kv-grid">
+      ${kv('Stammwürze', c.plato, st.ranges.plato, f1.format(c.plato) + ' °P')}
+      ${kv('Alkohol', c.abv, st.ranges.abv, f1.format(c.abv) + ' %')}
+      ${kv('Bittere', c.ibu, st.ranges.ibu, f0.format(c.ibu) + ' IBU')}
+      ${kv('Farbe', c.ebc, st.ranges.ebc, `<span class="swatch-inline" style="background:${ebcToHex(c.ebc)}"></span>${f0.format(c.ebc)} EBC`)}
+      ${kv('Hefe', 0, null, f0.format(fc.preview.pitchRatio * 100) + ' %')}
+    </div>${c.warnings.length ? c.warnings.map(w => `<div class="row sub">⚠️ ${esc(w.text)}</div>`).join('') : ''}`);
+
+  // Rechte Spalte: Potenzial, Erwartung, Kosten
+  const pct = (p, m) => Math.round(p / m * 100);
+  let right = `<section class="pot-card">
+    <div class="pot-head"><div><small>Potenzial dieses Rezepts</small><div class="pot-num">${pot.total}<span>/100</span></div></div>
+      <div class="pot-tier"><span>${pot.icon}</span>${esc(pot.tier)}</div></div>
+    <div class="glassbar"><div style="width:${pot.total}%"></div></div>
+    <div class="pot-parts">${pot.parts.map(p => `<div class="pot-part"><div class="row-top"><span>${esc(p.label)}</span><b>${f0.format(p.pts)}/${p.max}</b></div>
+      <div class="minibar"><div style="width:${pct(p.pts, p.max)}%"></div></div><small>${esc(p.note)}</small></div>`).join('')}</div>
+    <h3>✨ Kniffe für den Feinschliff</h3>
+    <div class="tricks">${pot.tricks.map(t => `<div class="trick ${t.ok ? 'ok' : t.pts > 0 ? 'half' : ''}"><span class="check">${t.ok ? '✓' : t.pts > 0 ? '½' : ''}</span>
+      <div class="grow"><b>${esc(t.label)}</b>${t.ok ? '' : `<small>${esc(t.hint)}</small>`}</div><span class="pts">+${t.max}</span></div>`).join('')}</div>
+    <div class="expect"><small>Erwartete Qualität</small><b>${fc.low === fc.high ? fc.low : `${fc.low}–${fc.high}`}</b>
+      ${fc.deductions.length ? `<ul>${fc.deductions.map(d => `<li>−${f0.format(d.pts)} ${esc(d.label)}</li>`).join('')}</ul>` : '<p class="sub">Keine Abzüge erwartet – Brauerglück entscheidet den Rest.</p>'}
+      <p class="sub">🦠 Infektionsrisiko ca. ${f0.format(fc.infection * 100)} % · ⏱️ fertig in ${fc.readyIn} Tagen</p></div>
+  </section>`;
+  right += group('💶 Kosten', !sandbox ? (now.missing.length ? `<div class="row"><span class="grow">🛒 Fehlende Zutaten<div class="sub">${esc(now.missing.join(', '))}</div></span><b>${buyError ? '–' : eur(buyCost)}</b></div>` : '<div class="row"><span class="grow">🛒 Zutaten aus dem Lager</span><b>0,00 €</b></div>') +
+    `<div class="row"><span class="grow">⚡ Energie, Wasser, Flaschen${g.optionCost(r) ? ', Verfahren' : ''}</span><b>${eur(run)}</b></div>
+     <div class="row"><span class="grow row-label">Zusammen</span><b>${eur((buyError ? 0 : buyCost) + run)}</b></div>` : '<div class="row empty">Sandbox: alles gratis.</div>');
   const blocked = free <= 0 ? 'Alle Gärplätze sind belegt – warte, bis ein Sud fertig ist.' : buyError ? 'Zu wenig Geld für die Zutaten.'
-    : s.mode !== 'sandbox' && s.cash < buyCost + run ? 'Zu wenig Geld für diesen Sud.' : '';
-  html += `<div class="actions">${blocked ? `<span class="warn-text">${blocked}</span>` : ''}
-    <button class="btn primary big" data-action="brew" ${blocked ? 'disabled' : ''}>🍺 Sud ansetzen</button></div>`;
-  return panel('🍺', 'Brauen', 'Stil wählen, Hopfenform und Menge festlegen, ansetzen', html);
+    : !c.grainKg ? 'Ohne Malz kein Bier.' : !sandbox && s.cash < buyCost + run ? 'Zu wenig Geld für diesen Sud.' : '';
+  right += `<div class="actions col">${blocked ? `<span class="warn-text">${blocked}</span>` : ''}
+    <button class="btn primary big wide" data-action="brew" ${blocked ? 'disabled' : ''}>🍺 Sud ansetzen</button>
+    <button class="btn wide" data-action="saveRecipe">💾 Rezept ins Sortiment</button></div>`;
+
+  html += `<div class="brew-grid"><div class="brew-main">${left}</div><aside class="brew-side">${right}</aside></div>`;
+  return panel('🍺', 'Brauen', 'Dein Rezept: Malz, Hopfen, Hefe und Verfahren – die Vorschau zeigt, was drin steckt', html);
 }
 
 function fermentView() {
@@ -285,7 +358,7 @@ function fermentView() {
       <div class="glassbar"><div style="width:${done / total * 100}%"></div></div><div class="sub">Gärtemperatur ${f1.format(b.fermTemp)} °C</div></div>`;
   }).join('') : empty('Gerade gärt nichts.'));
   const done = s.batches.filter(b => b.status === 'fertig').slice(-10).reverse();
-  html += group('Zuletzt fertig', done.length ? done.map(b => `<div class="row"><span class="grow">${esc(b.name)}<div class="sub">${esc(byId(STYLES, b.styleId)?.name)} · ${eur(b.costPerLiter)}/L Kosten</div></span>
+  html += group('Zuletzt fertig', done.length ? done.map(b => `<div class="row"><span class="grow">${esc(b.name)}<div class="sub">${esc(byId(STYLES, b.styleId)?.name)}${b.potential ? ` · Potenzial ${b.potential}` : ''} · ${eur(b.costPerLiter)}/L Kosten</div></span>
     <span class="badge ${b.quality >= 70 ? 'ok' : b.quality >= 50 ? '' : 'low'}">${b.quality} · ${esc(g.qualityLabel(b.quality))}</span></div>`).join('') : empty('Noch nichts.'));
   return panel('🫧', 'Gärkeller', `${g.slotsOf(s)} Gärplätze`, html);
 }
@@ -366,7 +439,7 @@ function cellarView() {
       const st = g.channelState(s, id);
       const room = st.open ? g.channelRoom(s, id) : 0;
       return `<div class="channel ${st.open ? '' : 'closed'} ${c.legal ? '' : 'shady'}"><span class="channel-icon">${c.icon}</span><b>${esc(c.name)}</b>
-        <small>${st.open ? (sandbox ? 'unbegrenzt' : `noch ${f0.format(room)} L diese Woche`) : '🔒 ' + esc(st.reason)}</small>
+        <small>${st.open ? (sandbox || c.unlimited ? 'nimmt jede Menge' : room > 0 ? `noch ${f0.format(room)} von ${f0.format(g.channelDemand(s, id))} L diese Woche` : 'diese Woche ausverkauft') : '🔒 ' + esc(st.reason)}</small>
         ${!c.legal && st.open ? `<small class="risk">🚨 Risiko bei 10 L: ${f0.format(g.blackRisk(s, 10) * 100)} %${s.license ? ' (Betriebsprüfung)' : ''}</small>` : ''}
         <small class="muted">${esc(c.text)}</small></div>`;
     }).join('')}</div>`;
@@ -383,6 +456,7 @@ function cellarView() {
         <span class="btn-row">
           ${has('verschenken') ? `<button class="btn" data-action="give" data-beer="${b.id}">🎁 Verschenken</button>` : ''}
           ${openCh.length ? `<select id="ch-${b.id}">${openCh.map(([id, c]) => `<option value="${id}">${c.icon} ${esc(c.name)} · ${eur(g.priceFor(s, b, id))}/L</option>`).join('')}</select>
+          <button class="btn" data-action="sellMax" data-beer="${b.id}" title="So viel wie möglich über den gewählten Absatzweg">Max</button>
           <button class="btn primary" data-action="sell" data-beer="${b.id}">💶 Verkaufen</button>` : ''}
         </span></div>
     </div>`;
@@ -434,7 +508,8 @@ function diaryView() {
 
 const GUIDE = [
   ['🛒', 'Einkaufen', 'Malz, Hopfen und Hefe kaufst du im Einkauf. Beim Brauen wird Fehlendes automatisch besorgt.'],
-  ['🍺', 'Brauen', 'Wähle einen Bierstil, die Hopfenform und die Menge. Die Vorschau zeigt, wie das Bier wird und was es kostet.'],
+  ['🍺', 'Brauen', 'Wähle einen Bierstil und bau dein Rezept: Malze, Hopfen (Sorte, Form, Zeitpunkt, Gramm), Hefe, Maischverfahren und Reifung. Das Potenzial zeigt, wie gut das Rezept höchstens werden kann – Kniffe wie edles Grundmalz oder Dekoktion heben es.'],
+  ['📒', 'Sortiment', 'Gib deinem Rezept einen Namen (z. B. „Diplom Pils“) und speichere es. So braust du deine Sorten mit einem Klick wieder.'],
   ['🫧', 'Gären', 'Je nach Hefe 2–4 Wochen. Die Temperatur ist entscheidend: Ohne Kühlung ist die Garage im Sommer zu warm und im Winter zu kalt.'],
   ['⏩', 'Zeit', 'Mit den Knöpfen oben spulst du Tage vor. Bei wichtigen Ereignissen hält die Zeit an und du entscheidest.'],
   ['📦', 'Lager & Verkauf', 'Fertiges Bier verschenkst du (Ruf) oder verkaufst es über Absatzwege. Ohne Gewerbe ist Verkaufen verboten – oder riskant.'],
@@ -462,10 +537,31 @@ const VIEWS = { home, brew: brewView, ferment: fermentView, shop: shopView, gear
 // ---------- Events ----------
 const num = id => parseFloat($(id).value);
 
+/** Eingabe in der Rezept-Werkstatt übernehmen. true = war ein Rezeptfeld. */
+function editRecipe(t) {
+  const r = brewForm.recipe; if (!r) return false;
+  const d = t.dataset, v = t.value, n = parseFloat(v);
+  const ok = x => Number.isFinite(x);
+  if (t.id === 'bName') r.name = v;
+  else if (t.id === 'bLiters') { if (ok(n)) r.batchL = Math.round(n); }
+  else if (t.id === 'bPlato') { if (ok(n)) r.plato = Math.min(30, Math.max(4, n)); }
+  else if (t.id === 'bYeast') r.yeastId = v;
+  else if (t.id === 'bMash') g.setMashProgram(r, v);
+  else if (t.id === 'bReif') r.reifung = t.checked;
+  else if ('malt' in d) r.malts[+d.malt].id = v;
+  else if ('share' in d) { if (ok(n)) r.malts[+d.share].share = Math.min(100, Math.max(0, n)); }
+  else if ('hop' in d) r.hops[+d.hop].id = v;
+  else if ('hform' in d) r.hops[+d.hform].form = v;
+  else if ('htime' in d) r.hops[+d.htime].time = +v;
+  else if ('hg' in d) { if (ok(n)) r.hops[+d.hg].gPerL = Math.max(0, n) / r.batchL; }
+  else return false;
+  return true;
+}
+
 function brewNow() {
   const { r } = currentRecipe();
   if (s.mode !== 'sandbox') g.buyForRecipe(s, r);
-  const b = g.startBatch(s, r);
+  const b = g.startBatch(s, structuredClone(r));
   view = 'home';
   toast(`🫧 „${b.name}“ gärt. Kosten ${eur(b.cost.total)} (${eur(b.costPerLiter)}/L). Fertig am ${g.dayLabel(b.readyDay)}.`, 'good');
 }
@@ -504,15 +600,15 @@ export function initGameUi() {
   const body = $('gBody');
   body.addEventListener('input', e => {
     if (e.target.id === 'mashT') { paintMash(); return; }
+    if (e.target.id === 'bName') { brewForm.recipe.name = e.target.value; return; }
     if (e.target.id !== 'wikiQ') return;
     wiki.q = e.target.value; render();
     const i = $('wikiQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length);
   });
   body.addEventListener('change', e => {
     const t = e.target;
-    if (t.id === 'bForm') { brewForm.form = t.value; render(); }
-    else if (t.id === 'bLiters') { brewForm.liters = Math.round(+t.value || 20); render(); }
-    else if (t.id === 'sLevel') act(() => g.setSandboxLevel(s, +t.value));
+    if (editRecipe(t)) { render(); return; }
+    if (t.id === 'sLevel') act(() => g.setSandboxLevel(s, +t.value));
   });
   body.addEventListener('click', e => {
     const goBtn = e.target.closest('[data-go]');
@@ -524,11 +620,26 @@ export function initGameUi() {
       return;
     }
     const pick = e.target.closest('[data-style-pick]');
-    if (pick) { brewForm.styleId = pick.dataset.stylePick; render(); return; }
+    if (pick) { brewForm.recipe = freshRecipe(pick.dataset.stylePick); render(); return; }
+    const load = e.target.closest('[data-load-recipe]');
+    if (load) {
+      const x = (s.recipes || []).find(y => y.name === load.dataset.loadRecipe);
+      if (x) { brewForm.recipe = structuredClone(x); render(); }
+      return;
+    }
     const b = e.target.closest('[data-action]'); if (!b || b.disabled) return;
     const d = b.dataset;
     switch (d.action) {
       case 'brew': act(brewNow); break;
+      case 'saveRecipe': act(() => { const x = g.saveRecipe(s, brewForm.recipe); brewForm.recipe.name = x.name; toast(`💾 „${x.name}“ ist jetzt in deinem Sortiment.`, 'good'); }); break;
+      case 'delRecipe': if (confirm(`Rezept „${d.name}“ aus dem Sortiment löschen?`)) act(() => g.deleteRecipe(s, d.name)); break;
+      case 'addMalt': {
+        const r = brewForm.recipe, used = new Set(r.malts.map(m => m.id));
+        r.malts.push({ id: ['carapils', 'wiener', 'muenchner', 'melanoidin'].find(id => !used.has(id)) || 'pilsner', share: 5 }); render(); break;
+      }
+      case 'delMalt': brewForm.recipe.malts.splice(+d.i, 1); render(); break;
+      case 'addHop': brewForm.recipe.hops.push({ id: 'hallertauer', gPerL: 1, time: 10, form: 'pellet' }); render(); break;
+      case 'delHop': brewForm.recipe.hops.splice(+d.i, 1); render(); break;
       case 'gear': act(() => g.buyGear(s, d.slot, d.tier)); break;
       case 'setup': act(() => g.setEquipment(s, d.slot, d.tier)); break;
       case 'buyMalt': act(() => g.buyMalt(s, $('kMalt').value, num('kMaltKg'))); break;
@@ -538,6 +649,11 @@ export function initGameUi() {
       case 'course': act(() => g.buyStyle(s, d.style)); break;
       case 'license': act(() => g.registerBusiness(s)); break;
       case 'give': act(() => g.give(s, +d.beer, num('liters-' + d.beer))); break;
+      case 'sellMax': {
+        const b = s.beers.find(x => x.id === +d.beer), room = g.channelRoom(s, $('ch-' + d.beer).value);
+        $('liters-' + d.beer).value = Math.max(0, Math.min(b.liters, Math.floor(room)));
+        break;
+      }
       case 'sell': act(() => {
         const r = g.sell(s, +d.beer, num('liters-' + d.beer), $('ch-' + d.beer).value);
         if (r.raided) toast('🚨 Kontrolle! Ware beschlagnahmt, Strafe fällig – siehe Tagebuch.', 'bad');

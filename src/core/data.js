@@ -19,6 +19,10 @@ export const MALTS = [
   { id: 'hafer',     name: 'Haferflocken',         ebc: 3,    extract: 70,   maxPct: 20 },
   { id: 'sauermalz', name: 'Sauermalz',            ebc: 5,    extract: 70,   maxPct: 10 },
   { id: 'kandis',    name: 'Kandiszucker hell',    ebc: 2,    extract: 100,  maxPct: 25 },
+  // Premium-Grundmalze: teurer, heben das Potenzial eines Rezepts
+  { id: 'pilsner_boden',   name: 'Pilsner Malz (Bodenmälzung)', ebc: 3.5, extract: 79.5, maxPct: 100, premium: true },
+  { id: 'muenchner_boden', name: 'Münchner Malz (Bodenmälzung)', ebc: 16, extract: 78.5, maxPct: 100, premium: true },
+  { id: 'maris',           name: 'Maris Otter (Pale, traditionell)', ebc: 6, extract: 80, maxPct: 100, premium: true },
 ];
 
 // alpha: Alphasäure %

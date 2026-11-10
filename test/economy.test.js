@@ -53,7 +53,15 @@ test('Absatzwege: eigene Wochen-Nachfrage, Ruf-Schwellen, Festival nur im Sommer
   const room = g.channelRoom(s, 'hof');
   assert.ok(room > 5 && room < 40, `room ${room}`);
   g.sell(s, 99, room, 'hof');
-  assert.throws(() => g.sell(s, 99, 1, 'hof'), /höchstens noch 0 L/);
+  assert.throws(() => g.sell(s, 99, 1, 'hof'), /ausverkauft/);
+  // Der Getränkehändler holt alles ab – aber deutlich billiger
+  const rest = s.beers[0].liters;
+  assert.equal(g.channelRoom(s, 'abholen'), Infinity);
+  assert.ok(g.priceFor(s, s.beers[0], 'abholen') < g.priceFor(s, s.beers[0], 'hof') / 2);
+  g.sell(s, 99, rest, 'abholen');
+  assert.ok(s.beers[0].liters < 0.01);
+  assert.equal(g.channelState(withBeer({ license: false }), 'abholen').open, false, 'Händler nur mit Gewerbe');
+  s.beers[0].liters = 100;
   s.reputation = 30; s.day = 200; // Juli
   const cash = s.cash;
   g.sell(s, 99, 10, 'festival');
