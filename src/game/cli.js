@@ -48,6 +48,7 @@ const HELP = `Befehle:
   verschenken <id> <liter> | verkaufen <id> <liter> [hof|gastro|festival|schwarz]
   spenden <kirche|tafel|kinder|feuerwehr|abtei> <euro> | freibier <id> <liter>
   bierliga                      – Rangliste
+  gewerbe                       – Gewerbe (nach-)anmelden, z. B. nach dem Schwarzverkauf
   weiter [eingabe]              – nächster Tutorial-Schritt (Maischen: Temperatur, Gärplatz: warm/tor) | ueberspringen
   entscheiden <option-id>       – bei einer Story-Entscheidung (oder Zahl 1,2,…)
   setup <kettle|fermenter|cooling> <stufe>  – nur Sandbox: Ausrüstung frei setzen`;
@@ -93,6 +94,7 @@ function run(line) {
       case 'verschenken': g.give(s, +a[0], +a[1]); break;
       case 'verkaufen': g.sell(s, +a[0], +a[1], a[2] || g.defaultChannel(s)); break;
       case 'spenden': g.donate(s, a[0], +a[1]); break;
+      case 'gewerbe': g.registerBusiness(s); break;
       case 'freibier': g.donateBeer(s, +a[0], +a[1], 'feuerwehr'); break;
       case 'bierliga': g.ranking(s).list.forEach((x, i) => out(`  ${String(i + 1).padStart(2)}. ${x.icon} ${x.name}${x.me ? '  ← du' : ''}  (${x.points} Punkte)`)); break;
       case 'weiter': out('  ' + (g.tutorialAct(s, a[0]) || 'OK')); tut(); break;

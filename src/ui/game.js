@@ -354,14 +354,20 @@ function coursesView() {
 function cellarView() {
   const sandbox = s.mode === 'sandbox';
   const beers = s.beers.filter(b => b.liters > 0.01);
-  const chans = Object.entries(g.CHANNELS).filter(([id]) => sandbox ? g.CHANNELS[id].legal : s.license ? g.CHANNELS[id].legal : true);
+  const chans = Object.entries(g.CHANNELS).filter(([id]) => !sandbox || g.CHANNELS[id].legal);
   let html = '';
+  if (has('verkauf') && !sandbox && !s.license) {
+    html += `<div class="license-card"><span class="channel-icon">🧾</span><div class="grow"><b>Gewerbe anmelden · ${f0.format(g.LICENSE_COST)} €</b>
+      <small>Gewerbe, Steuerlager und Lebensmittelamt: Dann verkaufst du legal über Hofverkauf, Gastro und Festivals – mit Biersteuer und 15 € Versicherung im Monat.${s.flags.schwarz ? ' Unter der Hand geht danach weiterhin – aber riskanter, weil der Zoll deine Bücher prüft.' : ''}</small></div>
+      <button class="btn primary" data-action="license">Jetzt anmelden</button></div>`;
+  }
   if (has('verkauf')) {
     html += `<div class="channels">${chans.map(([id, c]) => {
       const st = g.channelState(s, id);
       const room = st.open ? g.channelRoom(s, id) : 0;
       return `<div class="channel ${st.open ? '' : 'closed'} ${c.legal ? '' : 'shady'}"><span class="channel-icon">${c.icon}</span><b>${esc(c.name)}</b>
         <small>${st.open ? (sandbox ? 'unbegrenzt' : `noch ${f0.format(room)} L diese Woche`) : '🔒 ' + esc(st.reason)}</small>
+        ${!c.legal && st.open ? `<small class="risk">🚨 Risiko bei 10 L: ${f0.format(g.blackRisk(s, 10) * 100)} %${s.license ? ' (Betriebsprüfung)' : ''}</small>` : ''}
         <small class="muted">${esc(c.text)}</small></div>`;
     }).join('')}</div>`;
   } else html += `<p class="sub pad">🔒 Verkaufen wird in Kapitel 3 freigeschaltet. ${has('verschenken') ? 'Verschenken geht schon – das bringt Ruf.' : ''}</p>`;
@@ -530,6 +536,7 @@ export function initGameUi() {
       case 'buyYeast': act(() => g.buyYeast(s, $('kYeast').value, Math.round(num('kYeastN')))); break;
       case 'buySan': act(() => g.buySanitizer(s, Math.round(num('kSanN')))); break;
       case 'course': act(() => g.buyStyle(s, d.style)); break;
+      case 'license': act(() => g.registerBusiness(s)); break;
       case 'give': act(() => g.give(s, +d.beer, num('liters-' + d.beer))); break;
       case 'sell': act(() => {
         const r = g.sell(s, +d.beer, num('liters-' + d.beer), $('ch-' + d.beer).value);

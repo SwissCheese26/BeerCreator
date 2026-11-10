@@ -363,7 +363,10 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 .channel b { font-size: 15px; } .channel small { font-size: 12px; color: var(--text-2); }
 .channel .muted { color: var(--text-3); }
 .channel-icon { font-size: 28px; }
+.license-card { display: flex; align-items: center; gap: 14px; background: var(--card); border: 2px solid var(--accent-soft); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 10px; }
+.license-card small { display: block; color: var(--text-2); font-size: 12px; margin-top: 2px; }
 .channel.closed { opacity: .6; }
+.channel small.risk { color: var(--red); font-weight: 600; }
 .channel.shady { background: repeating-linear-gradient(135deg, var(--card), var(--card) 10px, var(--card-2) 10px, var(--card-2) 20px); }
 .honor-meter { background: var(--card); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .honor-top { display: flex; justify-content: space-between; font-weight: 600; }

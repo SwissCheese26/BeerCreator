@@ -88,7 +88,25 @@ test('Schwarzverkauf: ohne Steuer, aber Kontrollen kosten Nachzahlung + Strafe +
   assert.ok(raided, 'irgendwann wird kontrolliert');
   assert.ok(s.flags.vorbestraft && s.honor <= 20);
   assert.ok(s.log.some(l => /Strafe \d+/.test(l.text)));
-  assert.throws(() => g.sell(withBeer({ license: true }), 99, 5, 'schwarz'), /offiziell/);
+  // Mit Gewerbe geht es nebenbei weiterhin – aber riskanter und teurer
+  const lic = withBeer({ license: true });
+  assert.ok(g.channelState(lic, 'schwarz').open);
+  assert.ok(g.blackRisk(lic, 10) > g.blackRisk(s, 10));
+  assert.equal(g.sell(lic, 99, 1, 'schwarz').tax, 0);
+});
+
+test('Nach dem Schwarzverkauf kann man jederzeit ein Gewerbe nachmelden und legal verkaufen', () => {
+  const s = withBeer({ license: false }); s.flags.schwarz = true;
+  assert.equal(g.channelState(s, 'hof').open, false);
+  assert.ok(g.channelState(s, 'schwarz').open);
+  const cash = s.cash;
+  g.registerBusiness(s);
+  assert.ok(s.license && s.cash === cash - g.LICENSE_COST);
+  assert.ok(g.channelState(s, 'hof').open);
+  assert.ok(g.channelState(s, 'schwarz').open, 'nebenbei unter der Hand bleibt möglich');
+  assert.throws(() => g.registerBusiness(s), /bereits/);
+  const early = g.newGame({ skipTutorial: true });
+  assert.throws(() => g.registerBusiness(early), /Kapitel 3/);
 });
 
 test('Biersteuer auch auf verschenktes Bier, sobald ein Gewerbe läuft', () => {

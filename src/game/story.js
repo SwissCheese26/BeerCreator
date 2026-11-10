@@ -187,7 +187,7 @@ export const EVENTS = {
         enabled: s => s.cash >= LICENSE_COST,
         apply: s => { spend(s, LICENSE_COST, 'die Anmeldungen'); s.license = true; s.flags.done_gewerbe = true; s.honor = Math.min(100, s.honor + 3); return 'Der Stempel ist drauf. Ab jetzt zahlst du Biersteuer – dafür schläfst du ruhig. (Ansehen +3)'; } },
       { id: 'schwarz', label: '🕶️ Heimlich verkaufen. Riskant: Steuerhinterziehung, Kontrollen, hohe Strafen.',
-        apply: s => { s.license = false; s.flags.schwarz = true; s.flags.done_gewerbe = true; return 'Du verkaufst „unter der Hand“. Bei jedem Verkauf lauert die Kontrolle.'; } },
+        apply: s => { s.license = false; s.flags.schwarz = true; s.flags.done_gewerbe = true; return 'Du verkaufst „unter der Hand“. Bei jedem Verkauf lauert die Kontrolle. (Anmelden kannst du dich jederzeit unter „Lager & Verkauf“.)'; } },
       { id: 'hobby', label: '🏠 Vorerst Hobby bleiben (Ruf +2; die Frage kommt in 14 Tagen wieder).',
         done: false,
         apply: s => { s.reputation += 2; s.flags.retry_gewerbe = s.day + 14; return 'Du bleibst Hobbybrauer. Die Leute bewundern dein Prinzip – bis die Nachfrage wieder drängt.'; } },

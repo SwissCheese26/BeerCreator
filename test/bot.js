@@ -51,7 +51,7 @@ export function playStory({ seed = 1, maxDays = 1500, verbose = false } = {}) {
     for (const beer of s.beers.filter(b => b.liters > 0.01)) {
       if (ch === 'fest') { g.give(s, beer.id, Math.min(beer.liters, 10)); continue; }
       for (const c of ['gastro', 'hof', 'festival', 'schwarz']) {
-        if (!g.channelState(s, c).open || (c === 'festival' && beer.liters < 25)) continue;
+        if (!g.channelState(s, c).open || (c === 'festival' && beer.liters < 25) || (c === 'schwarz' && s.license)) continue;
         const room = Math.floor(g.channelRoom(s, c));
         const l = Math.min(Math.floor(beer.liters), room);
         if (l > 0) { try { g.sell(s, beer.id, l, c); } catch (e) { if (!(e instanceof g.GameError)) throw e; } }

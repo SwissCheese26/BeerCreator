@@ -49,7 +49,7 @@ export const CHANNELS = {
   festival: { name: 'Festival-Stand',           icon: '🎪', ref: 9.0, base: 80, minRep: 25, legal: true, fee: 120, summer: true,
               text: 'Mai bis September. Top-Preis, aber 120 € Standgebühr pro Woche, in der du dort verkaufst.' },
   schwarz:  { name: 'Unter der Hand',           icon: '🕶️', ref: 4.0, base: 30, minRep: 0,  legal: false,
-              text: 'Bar auf die Hand, ohne Gewerbe und ohne Steuer. Das ist Steuerhinterziehung – erwischt zu werden wird teuer.' },
+              text: 'Bar auf die Hand, ohne Steuer – mit oder ohne Gewerbe. Das ist Steuerhinterziehung: Mit Gewerbe prüft der Zoll deine Bücher, das Risiko und die Strafen sind höher.' },
 };
 
 // Spenden bringen Ansehen (und etwas Ruf). mult = wie stark die Spende wahrgenommen wird.

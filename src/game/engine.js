@@ -1,7 +1,7 @@
 // Spiel-Engine: Zeit, Absatz, Spenden, Steuer, Story-Fortschritt, Sandbox.
 import { byId, STYLES } from '../core/data.js';
 import { newRecipeFromStyle } from '../core/brew.js';
-import { START_DAY, YEAR_DAYS, HOBBY_LIMIT_L, TAX_PER_HL_PLATO, CELLAR_RENT, INSURANCE_MONTH, EQUIPMENT, TIER_ORDER,
+import { START_DAY, YEAR_DAYS, HOBBY_LIMIT_L, LICENSE_COST, CELLAR_RENT, INSURANCE_MONTH, EQUIPMENT, TIER_ORDER,
   CHANNELS, DONATION_TARGETS, beerTax, season } from './config.js';
 import { GameError, rand, log, need, clamp, round2, spend, unlock, FEATURES, hasFeature } from './state.js';
 import { CHAPTERS, EVENTS, ENDINGS, GLOBAL_EVENTS } from './story.js';
@@ -200,6 +200,20 @@ export function give(s, beerId, liters) {
 const isSummer = day => { const d = ((day - 1) % YEAR_DAYS) + 1; return d >= 121 && d <= 273; };
 const gambrinBeer = (s, b) => !!s.flags.gambrin && ['dubbel', 'tripel'].includes(b.styleId);
 
+/** Gewerbe jederzeit (nach-)anmelden – auch wenn man vorher heimlich verkauft hat. */
+export function registerBusiness(s) {
+  need(s.mode === 'story', 'Nur im Story-Modus nötig.');
+  need(hasFeature(s, 'verkauf'), 'Das Gewerbe wird erst in Kapitel 3 interessant.');
+  need(!s.license, 'Du hast bereits ein Gewerbe.');
+  spend(s, LICENSE_COST, 'die Anmeldungen');
+  const wasBlack = !!s.flags.schwarz;
+  s.license = true; s.flags.done_gewerbe = true;
+  s.honor = round2(clamp(s.honor + 3, 0, 100));
+  log(s, `🧾 Gewerbe, Steuerlager und Lebensmittelamt angemeldet (${LICENSE_COST} €). Ab jetzt verkaufst du legal – mit Biersteuer.` +
+    (wasBlack ? ' Unter der Hand geht weiterhin – aber jetzt prüft der Zoll deine Bücher.' : '') + ' Ansehen +3.', 'good');
+  checkStory(s);
+}
+
 /** Ist der Absatzweg offen? Liefert { open, reason }. */
 export function channelState(s, ch) {
   const c = CHANNELS[ch];
@@ -207,7 +221,6 @@ export function channelState(s, ch) {
   if (s.mode === 'sandbox') return c.legal ? { open: true } : { open: false, reason: 'In der Sandbox gibt es keinen Schwarzmarkt.' };
   if (!hasFeature(s, 'verkauf')) return { open: false, reason: 'Verkaufen ist noch gesperrt – erst einmal verschenken und Erfahrung sammeln.' };
   if (c.legal && !s.license) return { open: false, reason: 'Verkaufen ohne Gewerbe ist verboten. Verschenken geht.' };
-  if (!c.legal && s.license) return { open: false, reason: 'Mit Gewerbe verkaufst du ganz offiziell.' };
   if (s.reputation < c.minRep) return { open: false, reason: `Braucht ${c.minRep} Ruf.` };
   if (c.summer && !isSummer(s.day)) return { open: false, reason: 'Festivals gibt es nur von Mai bis September.' };
   return { open: true };
@@ -224,6 +237,8 @@ export function priceFor(s, b, ch = 'hof') {
   const c = CHANNELS[ch];
   return round2(c.ref * (0.6 + b.quality / 125) * (1 + s.reputation / 400) * (gambrinBeer(s, b) ? 1.4 : 1));
 }
+/** Wahrscheinlichkeit, beim Schwarzverkauf erwischt zu werden (mit Gewerbe höher). */
+export const blackRisk = (s, liters) => s.license ? Math.min(0.5, 0.07 + liters / 250) : Math.min(0.4, 0.04 + liters / 400);
 export const defaultChannel = s => (s.license || s.mode === 'sandbox' ? 'hof' : 'schwarz');
 
 export function sell(s, beerId, liters, channel = defaultChannel(s)) {
@@ -241,14 +256,16 @@ export function sell(s, beerId, liters, channel = defaultChannel(s)) {
 
   if (channel === 'schwarz') {
     s.stats.blackL = round2((s.stats.blackL || 0) + liters);
-    if (rand(s) < Math.min(0.4, 0.04 + liters / 400)) {
+    // Mit Gewerbe führt der Zoll Buch über dein Steuerlager – fehlende Liter fallen bei Prüfungen eher auf.
+    if (rand(s) < blackRisk(s, liters)) {
       const evaded = round2(beerTax(s.stats.blackL, b.plato, 0) / 0.5);
-      const fine = Math.max(500, Math.round(evaded * 10));
+      const fine = Math.max(s.license ? 1000 : 500, Math.round(evaded * (s.license ? 15 : 10)));
       const due = round2(evaded + fine);
       s.cash = Math.max(0, round2(s.cash - due));
-      s.reputation = Math.max(0, s.reputation - 10); s.honor = Math.max(0, s.honor - 20);
+      s.reputation = Math.max(0, s.reputation - (s.license ? 15 : 10)); s.honor = Math.max(0, s.honor - 20);
       s.stats.raids++; s.stats.blackL = 0; s.flags.vorbestraft = true;
-      log(s, `KONTROLLE! Der Zoll beschlagnahmt ${liters} L. Steuer-Nachzahlung ${evaded} € plus Strafe ${fine} €. Ruf −10, Ansehen −20.`, 'bad');
+      log(s, `${s.license ? 'BETRIEBSPRÜFUNG! In deinem Steuerlager fehlen Liter.' : 'KONTROLLE!'} Der Zoll beschlagnahmt ${liters} L. ` +
+        `Steuer-Nachzahlung ${evaded} € plus Strafe ${fine} €. Ruf −${s.license ? 15 : 10}, Ansehen −20.`, 'bad');
       checkStory(s);
       return { revenue: 0, tax: 0, raided: true };
     }
