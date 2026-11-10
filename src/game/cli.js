@@ -22,13 +22,19 @@ function flushLog() {
 function status() {
   const x = g.summary(s);
   out(`\nLevel ${x.level.lvl} ${x.level.name} (${x.level.xp} XP${x.level.nextXp ? `, noch ${x.level.toNext} bis Level ${x.level.lvl + 1}` : ', Maximum'})`);
-  out(`${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ort: ${x.stage}`);
+  out(`${s.breweryName} | ${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ansehen ${s.honor.toFixed(0)} | Bierliga Platz ${x.rank}/${x.rankOf} | Ort: ${x.stage}`);
   if (s.mode === 'story') g.objectives(s).forEach(o => out(`  ${o.done ? '✔' : '○'} ${o.text}`));
   out(`Ausrüstung: ${Object.entries(s.equipment).map(([k, v]) => g.EQUIPMENT[k][v].name).join(' · ')}`);
   const inv = s.inventory;
   out(`Lager: Malz ${Object.entries(inv.malts).map(([k, v]) => `${k} ${v}kg`).join(', ') || '–'} | Hopfen ${inv.hops.map(h => `${h.id}/${h.form} ${Math.round(h.g)}g (${h.ageDays}d)`).join(', ') || '–'} | Hefe ${Object.entries(inv.yeast).map(([k, v]) => `${k}×${v}`).join(', ') || '–'} | Desinfektion ${inv.sanitizer}`);
   s.batches.filter(b => b.status === 'gaerend').forEach(b => out(`  🍺 gärt: #${b.id} ${b.name} – fertig ${g.dayLabel(b.readyDay)}`));
   s.beers.filter(b => b.liters > 0.01).forEach(b => out(`  🍻 Lager: #${b.id} ${b.name} ${b.liters} L, Qualität ${b.quality} (${g.qualityLabel(b.quality)}), ${b.abv.toFixed(1)} %, ${b.ibu.toFixed(0)} IBU`));
+}
+function tut() {
+  const t = g.tutorialView(s); if (!t) return;
+  out(`\n${t.icon} Tutorial ${t.index + 1}/${t.total}: ${t.title}`);
+  t.lines.forEach(([who, text]) => out(`  ${who === 'opa' ? '📜 Opa' : '👵 Gerda'}: ${text}`));
+  out(t.kind === 'mash' ? '  → weiter <Temperatur in °C>' : t.kind === 'choice' ? `  → weiter <${t.choices.map(c => c.id).join('|')}>` : `  → weiter   (${t.button})`);
 }
 const HELP = `Befehle:
   status | hilfe | speichern | beenden
@@ -39,7 +45,10 @@ const HELP = `Befehle:
   kaufen malz <id> <kg> | hopfen <id> <dolde|pellet|extrakt> <g> | hefe <id> [n] | desinfektion [n] | technik <kettle|fermenter|cooling> <stufe>
   brauen <stil> [dolde|pellet|extrakt] [liter]   – kauft fehlende Zutaten automatisch und setzt an
   warten [tage]                 – Zeit vergehen lassen (Standard 7)
-  verschenken <id> <liter> | verkaufen <id> <liter>
+  verschenken <id> <liter> | verkaufen <id> <liter> [hof|gastro|festival|schwarz]
+  spenden <kirche|tafel|kinder|feuerwehr|abtei> <euro> | freibier <id> <liter>
+  bierliga                      – Rangliste
+  weiter [eingabe]              – nächster Tutorial-Schritt (Maischen: Temperatur, Gärplatz: warm/tor) | ueberspringen
   entscheiden <option-id>       – bei einer Story-Entscheidung (oder Zahl 1,2,…)
   setup <kettle|fermenter|cooling> <stufe>  – nur Sandbox: Ausrüstung frei setzen`;
 const FORM = { dolde: 'whole', pellet: 'pellet', extrakt: 'extract' };
@@ -82,7 +91,12 @@ function run(line) {
       }
       case 'warten': g.advanceDays(s, +a[0] || 7); break;
       case 'verschenken': g.give(s, +a[0], +a[1]); break;
-      case 'verkaufen': g.sell(s, +a[0], +a[1]); break;
+      case 'verkaufen': g.sell(s, +a[0], +a[1], a[2] || g.defaultChannel(s)); break;
+      case 'spenden': g.donate(s, a[0], +a[1]); break;
+      case 'freibier': g.donateBeer(s, +a[0], +a[1], 'feuerwehr'); break;
+      case 'bierliga': g.ranking(s).list.forEach((x, i) => out(`  ${String(i + 1).padStart(2)}. ${x.icon} ${x.name}${x.me ? '  ← du' : ''}  (${x.points} Punkte)`)); break;
+      case 'weiter': out('  ' + (g.tutorialAct(s, a[0]) || 'OK')); tut(); break;
+      case 'ueberspringen': g.skipTutorial(s); break;
       case 'entscheiden': { const c = s.event?.choices; g.resolveEvent(s, c?.[+a[0] - 1]?.id || a[0]); break; }
       case 'setup': g.setEquipment(s, a[0], a[1]); break;
       case 'speichern': fs.writeFileSync(SAVE, JSON.stringify(s)); out('Gespeichert.'); break;
@@ -95,7 +109,7 @@ function run(line) {
 }
 
 out(`Beer Creator – ${s.mode === 'sandbox' ? 'Sandbox' : 'Story'}-Modus. „hilfe“ für Befehle.`);
-flushLog(); status();
+flushLog(); status(); tut();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '> ' });
 rl.prompt();
 rl.on('line', l => { run(l); rl.prompt(); }).on('close', () => process.exit(0));

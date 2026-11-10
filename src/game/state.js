@@ -15,6 +15,22 @@ export const need = (cond, msg) => { if (!cond) throw new GameError(msg); };
 export const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 export const round2 = x => Math.round(x * 100) / 100;
 
+// Bereiche, die im Story-Modus nach und nach freigeschaltet werden (🔒 → 🔓)
+export const FEATURES = {
+  sudbuch: 'Sudbuch', lager: 'Lager', gaerkeller: 'Gärkeller', zeit: 'Zeit vorspulen', tagebuch: 'Tagebuch',
+  brauen: 'Brauen', einkauf: 'Einkauf', verschenken: 'Verschenken', bierliga: 'Bierliga',
+  verkauf: 'Verkauf', spenden: 'Spenden', ausruestung: 'Ausrüstung', kurse: 'Kurse',
+};
+export const hasFeature = (s, f) => s.mode === 'sandbox' || (s.features || []).includes(f);
+export function unlock(s, ...feats) {
+  s.features ||= [];
+  for (const f of feats) {
+    if (s.features.includes(f)) continue;
+    s.features.push(f);
+    if (s.mode === 'story') log(s, `🔓 Neu freigeschaltet: ${FEATURES[f] || f}`, 'unlock');
+  }
+}
+
 export function spend(s, amount, what) {
   if (s.mode === 'sandbox') return;
   need(s.cash >= amount - 1e-9, `Zu wenig Geld für ${what} (${round2(amount)} € nötig, ${round2(s.cash)} € vorhanden).`);

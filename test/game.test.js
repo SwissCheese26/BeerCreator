@@ -13,7 +13,7 @@ const brewSand = (style, form, s = sand()) => {
 };
 
 test('Story startet in der Garage mit Opas altem Hopfen und einer Entscheidung', () => {
-  const s = g.newGame();
+  const s = g.newGame({ skipTutorial: true });
   assert.equal(s.stage, 'garage');
   assert.equal(s.event.id, 'opa_brief');
   assert.equal(s.inventory.hops[0].form, 'whole');
@@ -36,7 +36,7 @@ test('Extrakt ist bei gleicher Bittere weit weniger Gramm', () => {
 });
 
 test('Alter Doldenhopfen: wenig Frische, Altgeruch, weniger Bittere', () => {
-  const s = g.newGame(); g.resolveEvent(s, 'tradition');
+  const s = g.newGame({ skipTutorial: true }); g.resolveEvent(s, 'tradition');
   const r = newRecipeFromStyle('helles'); r.hops = [{ id: 'hallertauer', gPerL: 0.6, time: 60, form: 'whole' }];
   const pv = g.previewBatch(s, r);
   assert.ok(pv.freshness[0] < 0.25);
@@ -70,7 +70,7 @@ test('Hygiene: Infektionen häufiger ohne Hygiene, Desinfektion hilft', () => {
 });
 
 test('Zu wenig Hefe, zu wenig Gärplätze, zu großer Sud werden abgelehnt/bestraft', () => {
-  const s = g.newGame(); g.resolveEvent(s, 'buch'); s.cash = 1000;
+  const s = g.newGame({ skipTutorial: true }); g.resolveEvent(s, 'buch'); s.cash = 1000;
   const r = newRecipeFromStyle('helles'); g.buyForRecipe(s, r);
   s.inventory.yeast.lager = 1; // Bedarf ist höher
   const b = g.startBatch(s, r);
@@ -88,7 +88,7 @@ test('Verkauf: ohne Gewerbe verboten, mit Gewerbe mit Biersteuer', () => {
   s.mode = 'story'; s.ended = true; // Story-Logik hier ausblenden
   const id = s.beers[0].id;
   s.license = false;
-  assert.throws(() => g.sell(s, id, 5), /Gewerbe/);
+  assert.throws(() => g.sell(s, id, 5, 'hof'), /Gewerbe/);
   s.license = true; const cash = s.cash;
   const res = g.sell(s, id, 5);
   assert.ok(res.revenue > 0 && res.tax > 0 && s.cash > cash);
@@ -145,7 +145,7 @@ test('Jeder Bierstil lässt sich im Sandbox-Modus brauen', async () => {
 });
 
 test('Level-System: Stufen, Freischaltung, Kursgebühr, Gating', () => {
-  const s = g.newGame(); g.resolveEvent(s, 'buch');
+  const s = g.newGame({ skipTutorial: true }); g.resolveEvent(s, 'buch');
   assert.equal(g.levelInfo(s).lvl, 1);
   assert.deepEqual(s.unlocked.sort(), ['helles', 'pale', 'pils', 'weizen']);
   assert.throws(() => g.buyStyle(s, 'tripel'), /Level 6/);

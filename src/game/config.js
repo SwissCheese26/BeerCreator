@@ -2,24 +2,79 @@
 
 export const START_DAY = 60;           // 1. März
 export const YEAR_DAYS = 365;
-export const HOBBY_LIMIT_L = 200;      // steuerfreie Hobbymenge pro Jahr (ohne Verkauf)
-export const TAX_PER_HL_PLATO = 0.787; // Biersteuer € je hl und °P
-export const TAX_SMALL_FACTOR = 0.5;   // vereinfachte Mengenstaffel für Kleinbrauereien
+// Steuerfreie Hausbrauer-Menge pro Kalenderjahr (ohne Verkauf). Rechtsstand prüfen (zoll.de):
+// lange 200 L; eine Anhebung auf 500 L war im Gespräch – der Wert ist bewusst hier zentral einstellbar.
+export const HOBBY_LIMIT_L = 200;
+export const LAW_STAND = '2026 (vereinfacht)';
+export const TAX_PER_HL_PLATO = 0.787; // Biersteuer € je hl und °P (Regelsatz, § 2 BierStG)
+export const TAX_SMALL_FACTOR = 0.5;   // Kleinbrauerei-Satz bis 5.000 hl/Jahr
 export const YEAST_PACK_CELLS = 160;   // Mrd. Zellen je Trockenhefe-Päckchen (11,5 g)
 export const BOTTLING_LOSS = 0.92;     // Anteil des Gärvolumens, der als Fertigbier übrig bleibt
-export const CELLAR_RENT = 40;
-export const ENERGY_PER_L = 0.35;       // € Gas/Strom/Wasser je Liter Ausschlag         // € pro 30 Tage
+export const CELLAR_RENT = 40;         // € pro 30 Tage
+export const ENERGY_PER_L = 0.35;      // € Gas/Strom/Wasser/Abwasser je Liter Ausschlag
+export const PACKAGING_PER_L = 0.15;   // € je Liter: wiederverwendete Bügelflaschen, Kronkorken, Etiketten
+export const LICENSE_COST = 300;       // Gewerbe, Steuerlager-Erlaubnis, Lebensmittel-Registrierung, Etiketten-Check
+export const INSURANCE_MONTH = 15;     // Betriebshaftpflicht, sobald ein Gewerbe läuft (€ pro 30 Tage)
+export const MALT_BULK_KG = 25;        // ab einem Sack Malz gibt es Rabatt
+export const MALT_BULK_FACTOR = 0.75;
+
+/** Mengenstaffel (§ 2 BierStG): Anteil des Regelsatzes nach Jahresausstoß in hl. */
+export function taxFactor(hlYear) {
+  if (hlYear > 200000) return 1;
+  const pts = [[5000, 0.5], [10000, 0.6], [20000, 0.7], [40000, 0.75]];
+  if (hlYear <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    const [h0, f0] = pts[i - 1], [h1, f1] = pts[i];
+    if (hlYear <= h1) return f0 + (f1 - f0) * Math.floor((hlYear - h0) / 1000) * 1000 / (h1 - h0);
+  }
+  return 0.75;
+}
+export const beerTax = (liters, plato, hlYear = 0) => liters / 100 * plato * TAX_PER_HL_PLATO * taxFactor(hlYear);
+
+/** Nachfrage-Saison: Sommer stark, Oktoberfest- und Bockbierzeit mit Extra-Schub. */
+export function season(day) {
+  const d = ((day - 1) % YEAR_DAYS) + 1;
+  let f = 1 + 0.25 * Math.sin(2 * Math.PI * (d - 110) / YEAR_DAYS);
+  if (d >= 258 && d <= 288) f += 0.2;   // Mitte Sept. – Mitte Okt.
+  if (d >= 335) f += 0.1;               // Dezember
+  return f;
+}
+
+// Absatzwege. ref = Referenzpreis €/L ab Brauerei, base = Liter pro Woche bei Ruf 50 und normaler Saison.
+export const CHANNELS = {
+  hof:      { name: 'Hofverkauf & Wochenmarkt', icon: '🧺', ref: 6.0, base: 25, minRep: 0,  legal: true,
+              text: 'Direkt an Nachbarn und auf dem Markt. Guter Preis, aber wenig Menge.' },
+  gastro:   { name: 'Gastronomie (Fass)',       icon: '🍻', ref: 4.5, base: 60, minRep: 15, legal: true,
+              text: 'Kneipen kaufen mehr, zahlen aber weniger pro Liter.' },
+  festival: { name: 'Festival-Stand',           icon: '🎪', ref: 9.0, base: 80, minRep: 25, legal: true, fee: 120, summer: true,
+              text: 'Mai bis September. Top-Preis, aber 120 € Standgebühr pro Woche, in der du dort verkaufst.' },
+  schwarz:  { name: 'Unter der Hand',           icon: '🕶️', ref: 4.0, base: 30, minRep: 0,  legal: false,
+              text: 'Bar auf die Hand, ohne Gewerbe und ohne Steuer. Das ist Steuerhinterziehung – erwischt zu werden wird teuer.' },
+};
+
+// Spenden bringen Ansehen (und etwas Ruf). mult = wie stark die Spende wahrgenommen wird.
+export const DONATION_TARGETS = {
+  kirche:    { name: 'Kirchengemeinde St. Martin', icon: '🔔', mult: 1.2, text: 'Für die neue Orgel und den Seniorenkreis.' },
+  tafel:     { name: 'Tafel e. V.',               icon: '🥫', mult: 1.0, text: 'Lebensmittel für Menschen mit wenig Geld.' },
+  kinder:    { name: 'Kindergarten Pusteblume',    icon: '🧸', mult: 1.0, text: 'Neue Spielgeräte für den Garten.' },
+  feuerwehr: { name: 'Freiwillige Feuerwehr',      icon: '🚒', mult: 1.1, beer: true, text: 'Geld – oder Freibier fürs Feuerwehrfest.' },
+  abtei:     { name: 'Abtei St. Gambrin (Dach)',   icon: '⛪', mult: 1.6, needs: 'abtei', text: 'Das Dach der alten Abtei, gegründet 1253, ist undicht.' },
+};
+// „Bunte“ Experimente: zählen nicht als stabile, klassische Bierkultur
+export const BUNT_STYLES = ['neipa', 'berliner', 'ipa'];
 
 export const EQUIPMENT = {
   kettle: {
-    topf:      { name: 'Einkochtopf 30 L',      maxBatchL: 20, cost: 0 },
-    kessel50:  { name: 'Edelstahlkessel 50 L',  maxBatchL: 40, cost: 450 },
-    kessel100: { name: 'Sudkessel 100 L',       maxBatchL: 80, cost: 1800 },
+    topf:      { name: 'Einkochtopf 30 L',      maxBatchL: 20,  cost: 0 },
+    kessel50:  { name: 'Edelstahlkessel 50 L',  maxBatchL: 40,  cost: 450 },
+    kessel100: { name: 'Sudkessel 100 L',       maxBatchL: 80,  cost: 1800 },
+    anlage2hl: { name: 'Brauanlage 2 hl',       maxBatchL: 200, cost: 6500 },
   },
   fermenter: {
     eimer:     { name: 'Gäreimer (Plastik)',    slots: 1, hygiene: 0,    cost: 0 },
     edelstahl: { name: 'Edelstahl-Gärtank',     slots: 2, hygiene: 0.15, cost: 260 },
     konisch:   { name: 'Konischer Gärtank',     slots: 4, hygiene: 0.3,  cost: 1100 },
+    tankraum:  { name: 'Gärtankraum (6 Tanks)', slots: 6, hygiene: 0.35, cost: 9000 },
   },
   cooling: {
     keine:        { name: 'Keine Kühlung (Garage)',           control: 0, cost: 0 },
@@ -28,8 +83,8 @@ export const EQUIPMENT = {
   },
 };
 export const TIER_ORDER = {
-  kettle: ['topf', 'kessel50', 'kessel100'],
-  fermenter: ['eimer', 'edelstahl', 'konisch'],
+  kettle: ['topf', 'kessel50', 'kessel100', 'anlage2hl'],
+  fermenter: ['eimer', 'edelstahl', 'konisch', 'tankraum'],
   cooling: ['keine', 'kuehlschrank', 'profi'],
 };
 

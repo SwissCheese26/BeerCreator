@@ -8,9 +8,90 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app">
+  <!-- Hauptmenü -->
+  <div class="menu" id="menuView">
+    <div class="menu-inner">
+      <img class="menu-logo" src="../icon.png" alt="">
+      <h1 class="menu-title">Beer Creator</h1>
+      <p class="menu-sub">Brau dein Bier – vom Einkochtopf in Opas Garage bis zur eigenen Brauerei.</p>
+
+      <div class="menu-cards">
+        <div class="menu-card" id="cardStory">
+          <div class="menu-card-icon">📖</div>
+          <div class="menu-card-body">
+            <b>Story</b>
+            <span id="storyInfo">Opas Garage → Straßenfest → Gewerbe → Keller → Landesmeisterschaft → eigene Brauerei.</span>
+          </div>
+          <div class="menu-card-actions">
+            <button class="btn primary" id="btnStoryContinue" hidden>Fortsetzen</button>
+            <button class="btn" id="btnStoryNew">Neues Spiel</button>
+          </div>
+        </div>
+        <div class="menu-card" id="cardSandbox">
+          <div class="menu-card-icon">🧪</div>
+          <div class="menu-card-body">
+            <b>Sandbox</b>
+            <span id="sandboxInfo">Unbegrenzt Geld und Zutaten, volle Ausrüstung, alle Stile – die Qualitäts-Simulation läuft trotzdem.</span>
+          </div>
+          <div class="menu-card-actions">
+            <button class="btn primary" id="btnSandboxContinue" hidden>Fortsetzen</button>
+            <button class="btn" id="btnSandboxNew">Neu starten</button>
+          </div>
+        </div>
+        <button class="menu-card clickable" id="btnCalc">
+          <div class="menu-card-icon">🧮</div>
+          <div class="menu-card-body">
+            <b>Rezept-Rechner</b>
+            <span>Alle Regler wirken live: Stammwürze, Bittere, Farbe, Alkohol, Wasser, Hefe.</span>
+          </div>
+          <div class="menu-card-chevron">›</div>
+        </button>
+      </div>
+
+      <button class="btn ghost menu-quit" id="btnQuit">Beenden</button>
+      <p class="menu-note">Ein Spiel übers Bierbrauen. Bier ist ein Genussmittel – verantwortungsvoll genießen, kein Alkohol an Kinder und Jugendliche.
+        Steuer- und Rechtsregeln sind vereinfacht. Alle Brauereien und Personen sind erfunden.</p>
+    </div>
+  </div>
+
+  <!-- Spiel (Story / Sandbox) -->
+  <div class="game" id="gameView" hidden>
+    <header class="g-top">
+      <div class="g-row">
+        <button class="g-btn" id="gBack" title="Zum Hauptmenü">☰ Menü</button>
+        <button class="g-btn" id="gHome" title="Zur Brauerei-Übersicht">🏠 Übersicht</button>
+        <div class="g-brand"><img src="../icon.png" alt=""><div><b id="gName"></b><small id="gChapter"></small></div></div>
+        <div class="g-wait" id="gWait">
+          <button class="g-btn" data-wait="1">⏩ 1 Tag</button>
+          <button class="g-btn" data-wait="7">⏩ 1 Woche</button>
+          <button class="g-btn" data-wait="30">⏩ 30 Tage</button>
+        </div>
+      </div>
+      <div class="g-stats" id="gStats"></div>
+    </header>
+    <main class="g-main" id="gBody"></main>
+  </div>
+
+  <div class="modal" id="gModal" hidden>
+    <div class="modal-box" id="gModalBox"></div>
+  </div>
+
+  <div class="modal" id="nameModal" hidden>
+    <form class="modal-box" id="nameForm">
+      <div class="unlock-big">🏷️</div>
+      <h2 class="modal-title center">Wie soll deine Brauerei heißen?</h2>
+      <p class="modal-text center">Den Namen kannst du dir selbst ausdenken. Ein eigenes Logo kommt später.</p>
+      <input class="search name-input" id="nameInput" maxlength="40" required minlength="2" value="Heinrichs Hausbrauerei" aria-label="Name der Brauerei">
+      <div class="btn-row center"><button type="button" class="btn" id="nameCancel">Abbrechen</button><button class="btn primary big" type="submit">🍺 Los geht's</button></div>
+    </form>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- Rezept-Rechner -->
+  <div class="app" id="calcView" hidden>
     <aside class="sidebar">
-      <div class="brand"><span class="brand-icon">🍺</span><span>Beer Creator</span></div>
+      <div class="brand"><img class="brand-img" src="../icon.png" alt=""><span>Beer Creator</span></div>
+      <button class="btn ghost back-top" id="calcBack">‹ Hauptmenü</button>
       <div class="side-label">Bierstile</div>
       <nav id="styleList" class="style-list"></nav>
       <div class="side-spacer"></div>
@@ -64,5 +145,6 @@
     </main>
   </div>
   <script type="module" src="app.js"></script>
+  <script type="module" src="menu.js"></script>
 </body>
 </html>

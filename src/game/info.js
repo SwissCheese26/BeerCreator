@@ -87,6 +87,8 @@ const EQUIP_INFO = {
   'kettle:topf': 'Der Einkochtopf aus Opas Garage. Reicht für Sude bis 20 Liter Ausschlag – genug zum Lernen.',
   'kettle:kessel50': '50-Liter-Edelstahlkessel: Sude bis 40 Liter, gleichmäßiger Siedevorgang, spart pro Liter Energie.',
   'kettle:kessel100': '100-Liter-Sudkessel: Sude bis 80 Liter. Für den Übergang zur Kleinbrauerei.',
+  'kettle:anlage2hl': 'Kleine Brauanlage mit Maisch-/Läuterbottich und Pfanne: Sude bis 200 Liter. Ab hier bist du eine echte Kleinbrauerei.',
+  'fermenter:tankraum': 'Ein eigener Raum mit sechs Edelstahltanks: viele Sude gleichzeitig, sehr gute Hygiene.',
   'fermenter:eimer': 'Gäreimer aus Kunststoff: günstig, ein Gärplatz. Kratzer bieten Keimen Versteck – schlechtere Hygiene.',
   'fermenter:edelstahl': 'Edelstahl-Gärtank: leichter zu reinigen (bessere Hygiene) und zwei Gärplätze.',
   'fermenter:konisch': 'Konischer Gärtank: Hefe und Trub lassen sich unten ablassen. Beste Hygiene und vier Gärplätze.',
@@ -123,6 +125,12 @@ const METRIC_INFO = {
   freshness: ['Hopfenalter', 'Hopfen verliert mit der Zeit Alpha-Säure und Aroma, Dolden am schnellsten, Extrakt kaum. Alter Hopfen bringt weniger Bittere und kann käsig schmecken.'],
   aroma: ['Hopfenaroma', 'Entsteht durch späte Gaben (≤15 Minuten, Whirlpool, Stopfen) von echtem Hopfen. Extrakt liefert hier nichts. Aromahopfen-Stile wie IPA brauchen viel davon.'],
   cost: ['Sudkosten', 'Malz + Hopfen + Hefe + Energie/Wasser + Desinfektion. Geteilt durch die Fertigbiermenge ergibt das die Kosten pro Liter – dein Verkaufspreis sollte darüber liegen.'],
+  honor: ['Ansehen (0–100)', 'Wie sehr man dir vertraut: Spenden, stabile Qualität und ehrliche Geschäfte steigern es, Schwarzverkauf und Skandale senken es. Hohes Ansehen öffnet Türen – zum Beispiel die der Abtei St. Gambrin.'],
+  konstanz: ['Konstanz', 'Wie gleichmäßig deine letzten Sude geworden sind. Klöster und Großkunden schätzen ein Bier, das jedes Mal gleich gut schmeckt, mehr als wilde Experimente.'],
+  kanaele: ['Absatzwege', 'Hofverkauf (wenig Menge, guter Preis), Gastronomie (viel Menge, weniger pro Liter), Festivals (Sommer, Top-Preis, Standgebühr). Jeder Weg hat seine eigene Wochen-Nachfrage – Ruf und Saison machen sie größer.'],
+  schwarzverkauf: ['Schwarzverkauf', 'Bier ohne Gewerbe und ohne Biersteuer zu verkaufen ist Steuerhinterziehung. Fliegt es auf, werden die Steuer nachgefordert, eine Geldstrafe fällig und die Ware beschlagnahmt – und dein Ansehen ist hin.'],
+  spenden: ['Spenden', 'Geld oder Freibier für Kirche, Tafel, Kindergarten oder Feuerwehr bringt Ansehen und etwas Ruf. Viele kleine Spenden wirken besser als eine riesige auf einmal.'],
+  trappist: ['Trappisten & Abteibier', 'Echte Trappistenbiere werden innerhalb von Klostermauern unter Aufsicht von Mönchen gebraut, die Gewinne gehen an soziale Zwecke; nur wenige Abteien weltweit dürfen das Siegel tragen. Laien arbeiten dort durchaus als Brauer mit. „Abteibier“ ist dagegen oft eine Lizenz. Im Spiel ist die Abtei St. Gambrin erfunden.'],
   temp: ['Gärtemperatur', 'Jede Hefe hat einen Wohlfühlbereich. Zu warm: Fuselalkohole und Lösungsmittel-Ester. Zu kalt: träge, dünn, evtl. steckengeblieben.'],
 };
 

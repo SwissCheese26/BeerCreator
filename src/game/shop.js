@@ -1,6 +1,9 @@
 import { MALTS, HOPS, HOP_FORMS, YEASTS, byId } from '../core/data.js';
-import { EQUIPMENT, TIER_ORDER, MALT_PRICE, HOP_PRICE_PELLET, HOP_EXTRACT_PRICE, YEAST_PRICE, SANITIZER_PRICE } from './config.js';
+import { EQUIPMENT, TIER_ORDER, MALT_PRICE, HOP_PRICE_PELLET, HOP_EXTRACT_PRICE, YEAST_PRICE, SANITIZER_PRICE, MALT_BULK_KG, MALT_BULK_FACTOR } from './config.js';
 import { need, spend, log, round2 } from './state.js';
+
+/** Malzpreis €/kg – ab einem ganzen Sack (25 kg) günstiger. */
+export const maltPrice = (id, kg) => MALT_PRICE[id] * (kg >= MALT_BULK_KG ? MALT_BULK_FACTOR : 1);
 
 export function hopPrice(s, id, form) {
   const base = form === 'extract' ? HOP_EXTRACT_PRICE : HOP_PRICE_PELLET[id] * HOP_FORMS[form].priceMul;
@@ -13,9 +16,9 @@ export const hopKey = (id, form) => form === 'extract' ? 'extract' : `${id}:${fo
 
 export function buyMalt(s, id, kg) {
   need(byId(MALTS, id) && kg > 0, 'Unbekanntes Malz oder Menge.');
-  spend(s, MALT_PRICE[id] * kg, 'Malz');
+  spend(s, maltPrice(id, kg) * kg, 'Malz');
   s.inventory.malts[id] = round2((s.inventory.malts[id] || 0) + kg);
-  log(s, `${kg} kg ${byId(MALTS, id).name} gekauft.`);
+  log(s, `${kg} kg ${byId(MALTS, id).name} gekauft${kg >= MALT_BULK_KG ? ' (Sackpreis −25 %)' : ''}.`);
 }
 
 export function buyHop(s, id, form, g) {

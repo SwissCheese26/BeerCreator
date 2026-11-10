@@ -40,3 +40,13 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - **Kosten:** Kurse, Ausrüstung, Zutaten, Energie/Wasser, Desinfektion; jeder Sud zeigt Kosten gesamt und pro Liter (`batch.cost`, `batch.costPerLiter`).
 - **Info-Texte** (`src/game/info.js`): zu jedem Malz, Hopfen, jeder Hopfenform, Hefe, jedem Stil, jeder Ausrüstung, jedem Level, Kennwert und Fehlaroma – `getInfo(kind, id)` / `findInfo(id)`; im Terminal: `info citra`. Ein Test stellt sicher, dass nichts ohne Text bleibt.
 - **Sandbox:** alle Stile frei, Level einstellbar (`level 1–8`), damit man die Folgen von Können ausprobieren kann.
+
+## Version 2: Tutorial, Wirtschaft, Spenden, Abtei
+- **Hauptmenü** mit Story, Sandbox, Rezept-Rechner. Beim neuen Spiel gibst du deiner Brauerei einen eigenen Namen (eigenes Logo: siehe Issue #1).
+- **Dashboard** mit großen Kacheln (🍺 Brauen, 🛒 Einkauf, 🫧 Gärkeller, 📦 Lager & Verkauf, 🙏 Spenden, 🏆 Bierliga, 🔧 Ausrüstung, 🎓 Kurse, 📔 Tagebuch, 📖 Sudbuch). Bereiche sind anfangs gesperrt (🔒) und werden kapitelweise freigeschaltet.
+- **Tutorial „Opas Sudbuch“** (`src/game/tutorial.js`): 11 geführte Schritte mit Opa Heinrich und Gerda – Einkaufen, Putzen, Maischen (Temperatur treffen), Läutern, Kochen, Kühlen, Gärplatz wählen, Warten, Abfüllen, Probieren. Überspringbar.
+- **Wirtschaft** (`src/game/config.js`, `engine.js`): Biersteuer mit Mengenstaffel (§ 2 BierStG) – auch auf verschenktes Bier, sobald ein Gewerbe läuft; Absatzwege Hofverkauf / Gastro / Festival (Sommer, Standgebühr) / Schwarzverkauf (ohne Steuer, aber Kontrollen mit Nachzahlung, Strafe, Ansehensverlust); Nachfrage nach Ruf und Saison; Ruf nur durch Qualität (Wochen-Deckel); Energie und Flaschen kosten beim Ansetzen; Malz-Sackrabatt; Versicherung mit Gewerbe; Hobbygrenze mit Steuer-Nachzahlung; 80 € Hobby-Budget pro Monat aus dem Job.
+- **Spenden & Ansehen**: Kirche, Tafel, Kindergarten, Feuerwehr (auch Freibier). Abnehmende Wirkung pro Woche.
+- **Abtei St. Gambrin (gegr. 1253, erfunden)**: Wer Ansehen ≥ 30 hat, ≥ 300 € gespendet hat, stabil gute klassische Biere braut und sauber bleibt, bekommt Besuch von Bruder Anselm → Dubbel-Rezept → Gemeinschaftssud mit Siegel (+40 % Preis, 30 % des Erlöses an die Abtei).
+- **Bierliga** (`src/game/league.js`): Rangliste mit 19 erfundenen Konkurrenten – du startest unten.
+- Steuer- und Rechtsregeln sind vereinfacht; alle Brauereien, Personen und die Abtei sind erfunden.
