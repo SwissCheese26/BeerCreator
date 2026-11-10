@@ -74,7 +74,7 @@ export const CHAPTERS = [
     id: 'gewerbe',
     title: 'Kapitel 3 – Ein Gewerbe?',
     intro: '„Wo kann man das kaufen?“ Gute Frage. Die Antwort führt leider über ein Amt. Und über dein Gewissen: Man kann es auch heimlich versuchen.',
-    onEnter: s => unlock(s, 'verkauf', 'spenden', 'marketing'),
+    onEnter: s => unlock(s, 'verkauf', 'spenden', 'marketing', 'presse'),
     objectives: [
       { id: 'legal', text: 'Kläre deinen Status (Gewerbe oder anderer Weg).', done: s => !!s.flags.done_gewerbe },
       { id: 'sell50', text: 'Verkaufe insgesamt 50 Liter.', done: s => s.stats.soldL >= 50 },

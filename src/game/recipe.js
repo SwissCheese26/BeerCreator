@@ -192,6 +192,14 @@ export function saveRecipe(s, recipe) {
   if (i >= 0) s.recipes[i] = r; else s.recipes.push(r);
   return r;
 }
+/** Freier Name: „Mein Helles“, „Mein Helles 2“, … – damit nichts versehentlich überschrieben wird. */
+export function uniqueRecipeName(s, base) {
+  const taken = new Set((s.recipes || []).map(x => x.name.toLowerCase()));
+  const b = String(base || 'Rezept').trim().slice(0, 36) || 'Rezept';
+  if (!taken.has(b.toLowerCase())) return b;
+  for (let i = 2; ; i++) if (!taken.has(`${b} ${i}`.toLowerCase())) return `${b} ${i}`;
+}
+export const recipeExists = (s, name) => (s.recipes || []).some(x => x.name.toLowerCase() === String(name || '').trim().toLowerCase());
 export function deleteRecipe(s, name) {
   s.recipes = (s.recipes || []).filter(x => x.name !== name);
 }

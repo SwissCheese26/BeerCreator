@@ -31,6 +31,7 @@ const TILES = [
   { id: 'production', icon: '⚙️', name: 'Produktion',   feature: 'produktion' },
   { id: 'quests',  icon: '📮', name: 'Aufträge',        feature: 'auftraege' },
   { id: 'marketing', icon: '📣', name: 'Marketing',     feature: 'marketing' },
+  { id: 'press',   icon: '📰', name: 'Presse & Radio',  feature: 'presse' },
   { id: 'web',     icon: '🌐', name: 'Webseite & Shop', feature: 'webseite' },
   { id: 'brand',   icon: '🎨', name: 'Marke & Design',  feature: 'marke' },
   { id: 'tech',    icon: '🔬', name: 'Technik',         feature: 'technik' },
@@ -40,7 +41,7 @@ const TILES = [
 ];
 const LOCK_HINT = { brauen: 'Kapitel 1', einkauf: 'Kapitel 1', verschenken: 'Kapitel 2', bierliga: 'Kapitel 2', verkauf: 'Kapitel 3',
   spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4', fasskeller: 'Kapitel 4', produktion: 'Kapitel 5', stilwerkstatt: 'Kapitel 5',
-  auftraege: 'Kapitel 2', marketing: 'Kapitel 3', webseite: 'Kapitel 4', marke: 'Kapitel 4', technik: 'Kapitel 5', industrie: 'Kapitel 6' };
+  auftraege: 'Kapitel 2', marketing: 'Kapitel 3', presse: 'Kapitel 3', webseite: 'Kapitel 4', marke: 'Kapitel 4', technik: 'Kapitel 5', industrie: 'Kapitel 6' };
 const GOAL_TILE = { brew2: 'brew', q50: 'brew', give20: 'cellar', rep8: 'cellar', sell50: 'cellar', gear: 'gear', styles3: 'brew', q65: 'brew',
   medal: 'cellar', rep50: 'cellar', cash4000: 'cellar' };
 const GOAL_HINT = {
@@ -59,7 +60,7 @@ const GOAL_HINT = {
 const WIKI_KINDS = { style: 'Bierstile', malt: 'Malze', hop: 'Hopfen', form: 'Hopfenformen', yeast: 'Hefen', gear: 'Ausrüstung', metric: 'Begriffe', flaw: 'Fehlaromen' };
 
 let s = null, view = 'home', onExit = () => {}, overlay = null, mashTemp = 60;
-const brewForm = { recipe: null }; // Rezept, das gerade in der Werkstatt bearbeitet wird
+const brewForm = { recipe: null, from: null }; // from = Name des geladenen/gespeicherten Rezepts (darf überschrieben werden) // Rezept, das gerade in der Werkstatt bearbeitet wird
 const wiki = { kind: 'style', q: '' };
 const has = f => g.hasFeature(s, f);
 
@@ -161,6 +162,7 @@ function home() {
   const tut = g.tutorialView(s);
   if (tut) html += tutorialCard(tut);
   else if (s.mode === 'story') html += goalCard();
+  html += radioBar();
   html += `<div class="tiles">${TILES.map(tileHtml).join('')}</div>`;
   return html;
 }
@@ -183,6 +185,7 @@ function tileSub(t) {
     case 'styles': return s.customStyles?.length ? `${s.customStyles.length} eigene Stile` : 'Eigene Biersorten';
     case 'quests': { const q = s.quests || { offered: [], active: [] }; return q.offered.length ? `📬 ${q.offered.length} neues Angebot` : q.active.length ? `${q.active.length} laufend` : 'Nebenquests'; }
     case 'marketing': { const p = s.reviews?.pending?.length; const a = g.ratingAvg(s); return p ? `📦 ${p} Probe unterwegs` : a != null ? `⭐ ${f1.format(a)} von 5` : 'Kritiker, Verkostung'; }
+    case 'press': { const p = s.press || {}; return p.current ? '🎙️ Interview läuft' : p.offer ? '📬 Interview-Anfrage!' : p.archive?.length ? `${p.archive.length} Artikel über dich` : 'Interviews, Radio'; }
     case 'web': return s.web ? (g.webOnline(s) ? '🟢 online' : '🔴 offline') : 'Agentur oder KI';
     case 'brand': return s.brand?.designed ? `${esc(s.brand.symbol)} ${esc(s.brand.text || 'eigenes Logo')}` : 'Logo, Flaschen, Gläser';
     case 'tech': return `${(s.tech || []).length} von ${Object.keys(g.TECH).length} Anlagen`;
@@ -250,6 +253,8 @@ function freshRecipe(styleId) {
   r.batchL = brewForm.recipe?.batchL || 20;
   r.mashProgram = g.mashProgramOf(r);
   r.reifung = false;
+  r.name = g.uniqueRecipeName(s, r.name);
+  brewForm.from = null;
   return r;
 }
 function currentRecipe() {
@@ -546,6 +551,8 @@ const GUIDE = [
   ['⚙️', 'Produktion', 'Ein Brauhelfer braut die Rezepte aus deinem Plan automatisch, sobald ein Tank frei ist, und verkauft nach deinen Regeln. Kostet Lohn.'],
   ['📮', 'Aufträge', 'Leute aus dem Dorf wünschen sich Bier – mit Frist und Belohnung. Annehmen, passendes Bier brauen, abliefern. Wer die Frist verpasst, enttäuscht.'],
   ['📣', 'Marketing', 'Schick Proben an Kritiker: Gute Kritiken bringen Ruf und Rummel (mehr Nachfrage). Jeder hat seinen Geschmack. Kunden vergeben Sterne, Verkostungen bringen Stammkunden.'],
+  ['📰', 'Presse & Radio', 'Zeitung, Podcast, Magazin und Fernsehen fragen nach Interviews. Deine Antworten formen dein Brauer-Profil (Tradition oder Experiment, bescheiden oder große Klappe, Heimat oder Wachstum) – das mögen manche Kritiker und Kunden mehr als andere. Versprechen werden nachgeprüft!'],
+  ['📻', 'Radio', 'Auf der Startseite läuft Radio Kesselwelle mit sechs Sendungen. Songs kannst du in Spotify öffnen. Radiospots bringen zwei Wochen mehr Nachfrage bei den Hörern – mehr, wenn dein Bier zum Sound passt.'],
   ['🌐', 'Webseite', 'Agentur (teuer, sicher) oder KI-Baukasten (günstig, löchrig). Öffnet den Onlineshop. Ohne Updates und Backups drohen Hacks, Ausfälle und Datenschutz-Bußgelder.'],
   ['📍', 'Standort', 'Wo du anfängst, wählst du beim neuen Spiel: Dorf (Hofverkauf, günstiges Malz), Großstadt (Kneipen, Craft, teure Miete), Bergdorf (Touristen, Feste) oder Unistadt (viel Durst, wenig Geld, Experimente).'],
   ['🎨', 'Marke & Design', 'Eigenes Logo im Icon-Creator, Etikett vom Grafikbüro, Logo-Gläser, eigene Flaschenform. Im Lager wählst du pro Bier Flasche und Glas – passend wirkt edel, unpassend billig.'],
@@ -783,6 +790,61 @@ function questsView() {
   return panel('📮', 'Aufträge', 'Nebenquests aus dem Dorf – mit Frist und Belohnung', html);
 }
 
+// ---------- Presse & Radio ----------
+function radioBar() {
+  if (!has('radio')) return '';
+  const np = g.nowPlaying(s);
+  return `<section class="radio-bar" aria-label="Brauerei-Radio"><span class="radio-ico" aria-hidden="true">📻</span>
+    <div class="radio-np"><small>${esc(g.RADIO_NAME)} · ${np.icon} ${esc(np.name)}</small><b>${esc(np.title)}</b><span>${esc(np.artist)}</span></div>
+    <div class="radio-ctl"><select id="radioShow" aria-label="Sendung wählen">${Object.entries(g.SHOWS).map(([id, x]) => `<option value="${id}" ${id === np.show ? 'selected' : ''}>${x.icon} ${esc(x.name)}</option>`).join('')}</select>
+      <button class="btn" data-action="radioNext" title="Nächster Song" aria-label="Nächster Song">⏭</button>
+      <a class="btn primary" href="${esc(np.url)}" target="_blank" rel="noopener" title="Song in Spotify öffnen">▶ Spotify</a></div></section>`;
+}
+const axis = (v, lo, hi) => `<div class="axis"><span>${lo}</span><div class="axis-bar"><i style="left:${(v + 10) * 5}%"></i></div><span>${hi}</span></div>`;
+function pressView() {
+  const p = g.pressOf(s), story = s.mode === 'story';
+  const iv = g.interviewView(s);
+  let html = '';
+  if (iv) {
+    html += `<section class="interview-card"><div class="speaker"><span class="avatar">${iv.icon}</span><div><small>${esc(iv.who)} · ${esc(iv.name)}</small><h3>Interview · Frage ${iv.step + 1} von ${iv.total}</h3></div></div>
+      <p class="iv-q">„${esc(iv.question)}“</p>
+      <div class="iv-answers">${iv.answers.map(a => `<button class="btn iv-a" data-action="ivAnswer" data-i="${a.i}">💬 ${esc(a.label)}</button>`).join('')}</div>
+      <p class="sub">Überleg dir, wer du sein willst: Deine Antworten formen dein Brauer-Profil. Was du versprichst, wird später nachgeprüft.</p></section>`;
+  } else if (p.offer) {
+    const m = g.MEDIA[p.offer.media];
+    html += `<section class="interview-card offer"><div class="speaker"><span class="avatar">${m.icon}</span><div><small>${esc(m.who)}</small><h3>${esc(g.mediaName(s, p.offer.media))} möchte dich interviewen</h3></div></div>
+      <p class="sub">Drei Fragen, ein Artikel. Reichweite: ${m.reach >= 1.5 ? 'sehr groß' : m.reach >= 1 ? 'groß' : 'regional'} – gute Antworten bringen Ruf, schlechte kosten welchen. Noch ${p.offer.expires - s.day} Tage Zeit.</p>
+      <div class="btn-row"><button class="btn primary" data-action="ivAccept">🎙️ Interview geben</button><button class="btn" data-action="ivDecline">Absagen</button></div></section>`;
+  }
+  const pe = g.persona(s);
+  html += group('🪪 Dein Brauer-Profil', `<div class="row"><span class="grow"><span class="row-label">Du giltst als ${esc(pe.title)}.</span>
+      <div class="sub">${pe.known ? `So sehen dich Presse und Kundschaft nach ${pe.known} Interview${pe.known > 1 ? 's' : ''}.` : 'Noch kennt dich niemand. Mit jedem Interview entsteht ein Bild von dir.'}</div></span></div>
+    <div class="row persona-axes">${axis(-pe.trad, '🏺 Tradition', '🧪 Experiment')}${axis(pe.bold, '🤫 bescheiden', '📣 große Klappe')}${axis(-pe.heimat, '🏡 Heimat', '📈 Wachstum')}</div>
+    ${pe.parts.filter(x => x[2]).map(([i, n, x]) => `<div class="row"><span class="ico">${i}</span><span class="grow"><span class="row-label">${esc(n)}</span><div class="sub">${esc(x)}</div></span></div>`).join('')}
+    ${p.claims.length ? `<div class="row sub">🤝 Öffentlich versprochen: ${p.claims.map(c => c.id === 'handwerk' ? '„Keine Massenware“' : '„Ich rette kleine Brauereien“').join(', ')} – halte dich dran.</div>` : ''}`);
+
+  const wait = p.radio.lastGuest + g.GUEST_COOLDOWN - s.day;
+  const guestWhy = p.current ? 'Erst das laufende Interview beenden.' : story && s.reputation < g.GUEST_MIN_REP ? `ab ${g.GUEST_MIN_REP} Ruf` : wait > 0 ? `wieder in ${wait} Tagen` : '';
+  html += group(`📻 ${esc(g.RADIO_NAME)}`, `<div class="row"><span class="grow"><span class="row-label">Als Gast ins Studio</span>
+      <div class="sub">Rocky Malzahn lädt dich in die Sendung ein: drei Fragen live, eine davon immer zur Musik. Kostenlos, aber alle hören zu.</div></span>
+      <button class="btn primary" data-action="radioGuest" ${guestWhy ? 'disabled' : ''}>${guestWhy ? '🔒 ' + esc(guestWhy) : '🎙️ Ins Studio'}</button></div>
+    ${Object.entries(g.SHOWS).map(([id, x]) => {
+      const ad = p.radio.ads.find(a => a.show === id && a.until >= s.day);
+      const fits = g.fitsShow(s, id), fav = p.radio.fav === id, spons = p.radio.sponsor === id;
+      return `<div class="row show-row"><span class="ico">${x.icon}</span><span class="grow"><span class="row-label">${esc(x.name)}</span> <span class="sub">${esc(x.slot)} · mit ${esc(x.host)}</span>
+        <div class="sub">${esc(x.text)} Hörer kaufen über: <b>${esc(g.CHANNELS[x.audience].name)}</b>. Passt zu: ${x.likes.map(y => esc(byId(STYLES, y).name)).join(', ')}.</div>
+        <div class="tag-row">${fits ? '<span class="badge ok">🍺 dein Bier passt zum Sound</span>' : ''}${fav ? '<span class="badge">❤️ deine Lieblingssendung</span>' : ''}${spons ? '<span class="badge ok">🤝 präsentiert von dir</span>' : ''}${ad ? `<span class="badge ok">📣 Spot läuft noch ${ad.until - s.day} Tage (+${Math.round((ad.factor - 1) * 100)} %)</span>` : ''}</div></span>
+        <span class="btn-col"><button class="btn" data-action="radioAd" data-show="${id}" ${ad ? 'disabled' : ''}>📣 Spot · ${story ? eur(g.AD_COST) : 'gratis'} (+${Math.round((g.adFactor(s, id) - 1) * 100)} %)</button>
+          ${spons ? `<button class="btn" data-action="radioSponsor" data-show="">Patenschaft beenden</button>` : `<button class="btn" data-action="radioSponsor" data-show="${id}">🤝 Pate werden · ${eur(g.SPONSOR_MONTH)}/Monat</button>`}</span></div>`;
+    }).join('')}`);
+
+  html += group('🗞️ Pressespiegel', p.archive.length ? [...p.archive].reverse().map(a => `<details class="row press-item"><summary><span class="grow"><span class="row-label">${esc(a.headline)}</span>
+      <div class="sub">${g.MEDIA[a.media]?.icon || '📰'} ${esc(a.name)} · ${g.dayLabel(a.day)}</div></span><span class="badge ${a.rep >= 0 ? 'ok' : 'low'}">Ruf ${a.rep >= 0 ? '+' : ''}${f1.format(a.rep)}</span></summary>
+      ${a.quotes.map(x => `<p class="sub"><b>${esc(x.q)}</b><br>„${esc(x.a.replace(/[„“]/g, ''))}“</p>`).join('')}${a.notes.length ? `<p class="sub">${esc(a.notes.join(' '))}</p>` : ''}</details>`).join('')
+    : empty(story ? 'Noch keine Artikel. Interview-Anfragen kommen mit wachsendem Ruf – oder du gehst selbst ins Radio.' : 'Im Sandbox-Modus kommen keine Anfragen – geh einfach ins Radio-Studio.'));
+  return panel('📰', 'Presse & Radio', 'Interviews, dein Ruf als Mensch und Werbung beim Lokalsender', html);
+}
+
 // ---------- Marke & Design ----------
 const brandForm = { symbol: null, color: null, shape: null, text: null };
 /** Logo als kleines HTML-Abzeichen (ohne externe Bilder). */
@@ -861,7 +923,7 @@ function packRow(b) {
     <select data-pack-glass="${b.id}" aria-label="Glas">${Object.entries(g.GLASSES).map(([id, x]) => opt(id, `${x.icon} ${x.name}`, (b.glass || 'willi') === id)).join('')}</select></div>
     ${notes.length ? `<div class="sub pack-notes">${notes.map(esc).join(' · ')}</div>` : ''}`;
 }
-const VIEWS = { brand: brandView, tech: techView, industry: industryView, marketing: marketingView, web: webView, quests: questsView, barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
+const VIEWS = { press: pressView, brand: brandView, tech: techView, industry: industryView, marketing: marketingView, web: webView, quests: questsView, barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
   donate: donateView, league: leagueView, diary: diaryView, sudbuch: sudbuchView };
 
 // ---------- Events ----------
@@ -950,6 +1012,7 @@ export function initGameUi() {
     if ('srange' in td) { const x = parseFloat(t.value); if (Number.isFinite(x)) styleForm.ranges[td.srange][+td.pos] = x; render(); return; }
     if ('plan' in td) { act(() => g.setPlan(s, td.plan, t.checked)); return; }
     if ('sec' in td) { act(() => g.setSecurity(s, +td.sec)); return; }
+    if (t.id === 'radioShow') { act(() => g.tuneRadio(s, t.value)); return; }
     if ('packBottle' in td) { act(() => g.setPackaging(s, +td.packBottle, { bottle: t.value })); return; }
     if ('packGlass' in td) { act(() => g.setPackaging(s, +td.packGlass, { glass: t.value })); return; }
     if ('sellrule' in td) { act(() => g.setSellRule(s, td.sellrule, t.value)); return; }
@@ -969,18 +1032,27 @@ export function initGameUi() {
     const bsel = e.target.closest('[data-bsym],[data-bcol],[data-bshape]');
     if (bsel) { const d = bsel.dataset; if (d.bsym) brandForm.symbol = d.bsym; if (d.bcol) brandForm.color = d.bcol; if (d.bshape) brandForm.shape = d.bshape; render(); return; }
     const cpick = e.target.closest('[data-custom-pick]');
-    if (cpick) { const cs = g.customOf(s, cpick.dataset.customPick); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, mashProgram: null, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); render(); } return; }
+    if (cpick) { const cs = g.customOf(s, cpick.dataset.customPick); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, mashProgram: null, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); brewForm.recipe.name = g.uniqueRecipeName(s, brewForm.recipe.name); brewForm.from = null; render(); } return; }
     const load = e.target.closest('[data-load-recipe]');
     if (load) {
       const x = (s.recipes || []).find(y => y.name === load.dataset.loadRecipe);
-      if (x) { brewForm.recipe = structuredClone(x); render(); }
+      if (x) { brewForm.recipe = structuredClone(x); brewForm.from = x.name; render(); }
       return;
     }
     const b = e.target.closest('[data-action]'); if (!b || b.disabled) return;
     const d = b.dataset;
     switch (d.action) {
       case 'brew': act(brewNow); break;
-      case 'saveRecipe': act(() => { const x = g.saveRecipe(s, brewForm.recipe); brewForm.recipe.name = x.name; toast(`💾 „${x.name}“ ist jetzt in deinem Sortiment.`, 'good'); }); break;
+      case 'saveRecipe': {
+        const r = brewForm.recipe, nm = String(r.name || '').trim();
+        // Gleicher Name wie ein anderes Rezept? Fragen statt still überschreiben.
+        if (g.recipeExists(s, nm) && nm.toLowerCase() !== (brewForm.from || '').toLowerCase()
+          && !confirm(`Im Sortiment gibt es schon „${nm}“. Überschreiben?
+
+(„Abbrechen“ speichert es als „${g.uniqueRecipeName(s, nm)}“.)`)) r.name = g.uniqueRecipeName(s, nm);
+        act(() => { const x = g.saveRecipe(s, r); r.name = x.name; brewForm.from = x.name; toast(`💾 „${x.name}“ ist jetzt in deinem Sortiment (${s.recipes.length} Rezepte).`, 'good'); });
+        break;
+      }
       case 'delRecipe': if (confirm(`Rezept „${d.name}“ aus dem Sortiment löschen?`)) act(() => g.deleteRecipe(s, d.name)); break;
       case 'buyBarrel': act(() => g.buyBarrel(s, d.type)); break;
       case 'fillBarrel': act(() => g.fillBarrel(s, +d.id, +$('bf-beer-' + d.id).value, num('bf-l-' + d.id))); break;
@@ -990,7 +1062,7 @@ export function initGameUi() {
       case 'createStyle': act(() => { const cs = g.createStyle(s, { name: styleForm.name, base: styleForm.base, ranges: styleForm.ranges, yeastId: styleForm.yeastId });
         styleForm.name = ''; toast(`🧪 „${cs.name}“ ist geboren. Jetzt ein Rezept dafür bauen!`, 'good'); }); break;
       case 'delStyle': if (confirm('Diesen Stil löschen? Gespeicherte Rezepte und Bier im Lager bleiben erhalten.')) act(() => g.deleteStyle(s, d.id)); break;
-      case 'brewCustom': { const cs = g.customOf(s, d.id); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); go('brew'); } break; }
+      case 'brewCustom': { const cs = g.customOf(s, d.id); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); brewForm.recipe.name = g.uniqueRecipeName(s, brewForm.recipe.name); brewForm.from = null; go('brew'); } break; }
       case 'hireHelper': act(() => g.hireHelper(s)); break;
       case 'saveBrand': act(() => { g.setBrand(s, brandForm); toast('🎨 Dein Logo ist fertig!', 'good'); }); break;
       case 'order': act(() => g.placeOrder(s, d.id)); break;
@@ -1002,6 +1074,13 @@ export function initGameUi() {
       case 'tasting': act(() => { const r = g.hostTasting(s, +$('tastingBeer').value, d.size); toast(`🍻 Verkostung vorbei: Ruf ${r.rep >= 0 ? '+' : ''}${f1.format(r.rep)}${r.regulars ? `, ${r.regulars} neue Stammkunden` : ''}.`, r.rep >= 0 ? 'good' : 'bad'); }); break;
       case 'web': if (!s.web || confirm('Die alte Seite wird ersetzt. Weiter?')) act(() => g.buildWebsite(s, d.kind)); break;
       case 'questAccept': act(() => g.acceptQuest(s, d.q)); break;
+      case 'ivAccept': act(() => g.acceptInterview(s)); break;
+      case 'ivDecline': act(() => g.declineInterview(s)); break;
+      case 'ivAnswer': act(() => { const r = g.answerInterview(s, +d.i); if (r.done) toast(`${g.MEDIA[r.article.media].icon} ${r.article.headline}`, r.article.rep >= 0 ? 'good' : 'bad'); }); break;
+      case 'radioGuest': act(() => g.radioGuest(s)); break;
+      case 'radioAd': act(() => g.bookAd(s, d.show)); break;
+      case 'radioSponsor': act(() => g.sponsorShow(s, d.show || null)); break;
+      case 'radioNext': act(() => g.nextSong(s)); break;
       case 'questDecline': act(() => g.declineQuest(s, d.q)); break;
       case 'questDeliver': act(() => { g.deliverQuest(s, d.q, +$('qb-' + d.q).value); toast('✅ Auftrag erledigt! Siehe Tagebuch.', 'good'); }); break;
       case 'fireHelper': act(() => g.fireHelper(s)); break;

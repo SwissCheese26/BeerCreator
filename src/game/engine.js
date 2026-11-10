@@ -12,13 +12,14 @@ import { customOf, customPriceFactor, addFame } from './styles.js';
 import { runAutomation, HELPER_WAGE } from './production.js';
 import { processReviews, rateSale, demandFactor, webMonthly, webOnline } from './marketing.js';
 import { questsDaily } from './quests.js';
+import { pressDaily, pressMonthly, pressDemand, pressOf } from './press.js';
 import { LOCATIONS, locOf, presentation, contractsDaily, breweriesWeekly, hasTech } from './business.js';
 import { recipePotential } from './recipe.js';
 import { compute } from '../core/brew.js';
 
 export const DEFAULT_BREWERY = 'Heinrichs Hausbrauerei';
 export const JOB_BUDGET = 80; // € pro 30 Tage, die du vom Gehalt fürs Brauen abzweigst
-export const TUTORIAL_FEATURES = ['sudbuch', 'lager', 'gaerkeller', 'zeit', 'tagebuch'];
+export const TUTORIAL_FEATURES = ['sudbuch', 'lager', 'gaerkeller', 'zeit', 'tagebuch', 'radio'];
 
 export function newGame({ mode = 'story', seed = 42, breweryName = DEFAULT_BREWERY, skipTutorial = false, location = 'kesselbach' } = {}) {
   const sandbox = mode === 'sandbox';
@@ -41,6 +42,7 @@ export function newGame({ mode = 'story', seed = 42, breweryName = DEFAULT_BREWE
     location: LOCATIONS[location] ? location : 'kesselbach', tech: [], brand: null, owned: [], contracts: [],
     log: [],
   };
+  pressOf(s);
   if (sandbox) log(s, 'Sandbox-Modus: unbegrenztes Geld und Zutaten, volle Ausrüstung. Die Qualitäts-Simulation läuft trotzdem.');
   else {
     s.inventory.hops.push({ id: 'hallertauer', form: 'whole', g: 200, ageDays: 1200 }); // Opas Hopfenglas
@@ -58,10 +60,12 @@ export function migrate(s) {
   s.web ??= null; s.buzz ??= null; s.regulars ||= 0;
   s.quests ||= { offered: [], active: [], done: [], failed: [], declined: [] };
   s.location ||= 'kesselbach'; s.tech ||= []; s.brand ??= null; s.owned ||= []; s.contracts ||= [];
+  pressOf(s);
   if (s.mode === 'sandbox') { for (const f of Object.keys(FEATURES)) if (!s.features.includes(f)) s.features.push(f); }
   if (s.mode === 'story' && s.tutorial?.done) {
     if (s.chapter >= 2 || s.ended) unlock(s, 'auftraege');
-    if (s.chapter >= 3 || s.ended) unlock(s, 'marketing');
+    if (s.chapter >= 3 || s.ended) unlock(s, 'marketing', 'presse');
+    unlock(s, 'radio');
     if (s.chapter >= 4 || s.ended) unlock(s, 'fasskeller', 'webseite', 'marke');
     if (s.chapter >= 5 || s.ended) unlock(s, 'technik');
     if (s.chapter >= 6 || s.ended) unlock(s, 'industrie');
@@ -169,6 +173,7 @@ export function advanceDays(s, n = 1) {
     }
     processReviews(s);
     questsDaily(s);
+    pressDaily(s);
     runAutomation(s);
     checkStory(s);
     if (s.event) break; // Zeit bleibt stehen, bis entschieden wurde
@@ -185,6 +190,7 @@ function monthlyCosts(s) {
   if (s.license) bills.push(['Betriebshaftpflicht', INSURANCE_MONTH]);
   if (s.auto?.helper) bills.push(['Lohn Brauhelfer', HELPER_WAGE]);
   webMonthly(s);
+  pressMonthly(s);
   for (const [what, eur] of bills) {
     if (s.cash >= eur) { s.cash = round2(s.cash - eur); log(s, `${what}: ${eur} €.`); }
     else if (what === 'Lohn Brauhelfer') { s.auto.helper = false; log(s, `👷 Du konntest den Brauhelfer nicht bezahlen (${eur} €) – er hat gekündigt.`, 'bad'); }
@@ -272,7 +278,7 @@ export function channelDemand(s, ch) {
   const c = CHANNELS[ch];
   if (c.unlimited) return Infinity;
   const base = c.base * (c.web && s.web ? ({ agentur: 1.15 }[s.web.kind] || 1) * (hasTech(s, 'dosen') ? 1.15 : 1) : 1) + (ch === 'hof' ? s.regulars || 0 : 0);
-  return Math.floor(base * (locOf(s).demand[ch] ?? 1) * (0.5 + s.reputation / 100) * season(s.day) * demandFactor(s, ch));
+  return Math.floor(base * (locOf(s).demand[ch] ?? 1) * (0.5 + s.reputation / 100) * season(s.day) * demandFactor(s, ch) * pressDemand(s, ch));
 }
 export const channelRoom = (s, ch) => Math.max(0, channelDemand(s, ch) - (s.week.sold[ch] || 0));
 /** Preis €/L ab Brauerei: Referenzpreis × Qualität × Ruf (× Klosterbonus). */

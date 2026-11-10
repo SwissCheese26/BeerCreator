@@ -51,6 +51,14 @@ function useExtras(s) {
     if (b && b.quality >= 65 && b.liters >= 10 && s.cash > 300) try_(() => g.hostTasting(s, b.id, 'mittel'));
   }
   if (g.hasFeature(s, 'webseite') && gearDone && s.license && !s.web && s.cash > 1500) { try_(() => g.buildWebsite(s, 'ki')); try_(() => g.setSecurity(s, 2)); }
+  // Schritt 5: Interviews geben (immer die erste Antwort), ins Radio gehen, ab und zu einen Spot buchen
+  if (g.hasFeature(s, 'presse')) {
+    const p = g.pressOf(s);
+    if (p.offer) try_(() => g.acceptInterview(s));
+    else try_(() => g.radioGuest(s));
+    for (let i = 0; i < 5 && p.current; i++) try_(() => g.answerInterview(s, s.day % 3));
+    if (gearDone && s.cash > 1200) for (const id of Object.keys(g.SHOWS)) if (g.fitsShow(s, id)) { try_(() => g.bookAd(s, id)); break; }
+  }
 }
 
 export function playStory({ seed = 1, maxDays = 1500, verbose = false, extras = false, location = 'kesselbach' } = {}) {

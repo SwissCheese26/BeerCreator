@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme } from 'electron';
+import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,6 +14,11 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  // Links aus dem Radio (Spotify) im System-Browser bzw. der Spotify-App öffnen – sonst nichts.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\/open\.spotify\.com\/track\/[A-Za-z0-9]+$/.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
   });
   win.loadFile(path.join(__dirname, 'ui', 'index.html'));
 }

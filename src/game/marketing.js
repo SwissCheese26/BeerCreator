@@ -4,6 +4,7 @@ import { beerTax } from './config.js';
 import { need, log, rand, round2, clamp, spend, hasFeature } from './state.js';
 import { addFame, styleView } from './styles.js';
 import { presentationReview, hasOrder } from './business.js';
+import { personaReviewBonus } from './press.js';
 
 // ---------- Kritiker ----------
 // reach: wie viele Leute zuhören (wirkt auf Ruf und Nachfrage). likes/hates: Stil-Vorlieben. harsh: zieht Punkte ab.
@@ -87,7 +88,7 @@ export function reviewScore(reviewerId, beer) {
 function writeReview(s, p) {
   const r = REVIEWERS[p.reviewer], b = p.beer;
   const look = presentationReview(s, b);
-  const score = Math.round(clamp(reviewScore(p.reviewer, b) + look + (rand(s) - 0.5) * 12, 0, 100));
+  const score = Math.round(clamp(reviewScore(p.reviewer, b) + look + personaReviewBonus(s, p.reviewer) + (rand(s) - 0.5) * 12, 0, 100));
   const stars = clamp(Math.round(score / 20 * 2) / 2, 0.5, 5);
   const style = styleView(b).name;
   const flaws = (b.flaws || []).map(f => FLAW_TXT[f]).filter(Boolean);

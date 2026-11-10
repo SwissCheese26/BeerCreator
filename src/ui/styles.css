@@ -531,3 +531,36 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 .pack-notes { font-size: 12px; }
 .expect li.plus { color: var(--green, #2e8b57); }
 .donate-card.owned { outline: 2px solid var(--accent-fill); }
+
+/* ---------- Schritt 5: Presse & Radio ---------- */
+.radio-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 14px; margin: 14px 0; }
+.radio-ico { font-size: 28px; }
+.radio-np { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; }
+.radio-np small { color: var(--text-2); font-size: 12px; font-weight: 600; }
+.radio-np b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-np span { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.radio-ctl select { max-width: 230px; }
+.radio-ctl a.btn { text-decoration: none; }
+.interview-card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 16px; border-left: 4px solid var(--accent-fill); }
+.interview-card h3 { margin: 0; font-size: 16px; }
+.iv-q { font-size: 18px; font-weight: 600; margin: 6px 0 12px; line-height: 1.4; }
+.iv-answers { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.iv-answers .iv-a { text-align: left; white-space: normal; justify-content: flex-start; padding: 10px 14px; }
+.persona-axes { flex-direction: column; align-items: stretch; gap: 8px; }
+.axis { display: grid; grid-template-columns: 130px 1fr 130px; align-items: center; gap: 10px; font-size: 13px; }
+.axis span:last-child { text-align: right; }
+.axis-bar { position: relative; height: 6px; border-radius: 3px; background: var(--card-2); }
+.axis-bar i { position: absolute; top: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--accent-fill); transform: translateY(-50%); }
+.show-row { align-items: flex-start; }
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.btn-col { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.press-item { display: block; }
+.press-item summary { display: flex; gap: 10px; align-items: center; cursor: pointer; list-style: none; }
+.press-item summary::-webkit-details-marker { display: none; }
+@media (max-width: 640px) {
+  .axis { grid-template-columns: 1fr; gap: 4px; }
+  .axis span:last-child { text-align: left; }
+  .show-row { flex-wrap: wrap; }
+  .btn-col { flex-direction: row; flex-wrap: wrap; }
+}

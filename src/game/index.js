@@ -8,6 +8,7 @@ export * from './production.js';
 export * from './marketing.js';
 export * from './quests.js';
 export * from './business.js';
+export * from './press.js';
 export * from './config.js';
 export { CHAPTERS, EVENTS, ENDINGS, GLOBAL_EVENTS, abbeyProgress, abbeyReady } from './story.js';
 export * from './progress.js';

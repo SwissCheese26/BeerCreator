@@ -18,6 +18,7 @@ function check(s, where) {
   if (s.mode === 'story') assert.ok(s.cash >= -1e-6, `${where}: Geld ${s.cash}`);
   for (const b of s.beers) assert.ok(b.liters >= -1e-6, `${where}: ${b.name} ${b.liters} L`);
   assert.ok(s.reputation >= 0 && s.reputation <= 100 && s.honor >= 0 && s.honor <= 100, `${where}: Ruf ${s.reputation} / Ansehen ${s.honor} – ${s.log.slice(-3).map(l => l.text).join(' | ')}`);
+  if (s.press) for (const [k, v] of Object.entries(s.press.persona)) assert.ok(Number.isFinite(v) && v >= -10 && v <= 10, `${where}: Persönlichkeit ${k} = ${v}`);
   JSON.parse(JSON.stringify(s)); // speicherbar
 }
 
@@ -57,6 +58,10 @@ export function fuzz(mode, seed, steps) {
     () => s.recipes.length && g.contractBrew(s, pick(s.recipes).name, pick([100, 500, 2000, 9000])),
     () => g.buyBrewery(s, pick(g.forSale(s)).name),
     () => s.owned.length && g.sellBrewery(s, pick(s.owned)),
+    () => g.acceptInterview(s), () => g.declineInterview(s), () => g.radioGuest(s),
+    () => g.answerInterview(s, pick([0, 1, 2, 3])), () => g.answerInterview(s, pick([0, 1, 2])),
+    () => g.bookAd(s, pick(Object.keys(g.SHOWS))), () => g.sponsorShow(s, pick([...Object.keys(g.SHOWS), null])),
+    () => { g.tuneRadio(s, pick(Object.keys(g.SHOWS))); g.nextSong(s); if (!g.nowPlaying(s).title) throw new Error('Radio ohne Song'); },
   ];
   let errors = 0;
   for (let i = 0; i < steps; i++) {
