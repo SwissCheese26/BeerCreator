@@ -56,7 +56,7 @@ export function barrelStatus(s, barrel) {
   const days = s.day - barrel.fill.startDay;
   const fits = BARRELS[barrel.type].suits.includes(barrel.fill.beer.styleId);
   return { days, gain: round2(barrelGain(barrel, barrel.fill.beer, days)), ready: days >= BARREL_MIN_DAYS, fits,
-    peak: days >= 120 && days <= 200, over: days > 200, liters: round2(barrel.fill.liters * (1 - 0.02 * days / 30)) };
+    peak: days >= 120 && days <= 200, over: days > 200, liters: round2(barrel.fill.liters * Math.max(0.5, 1 - 0.02 * days / 30)) };
 }
 
 export function emptyBarrel(s, barrelId) {

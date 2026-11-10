@@ -481,3 +481,14 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 .style-chip.custom { border-style: dashed; border-color: var(--accent-soft); }
 .style-chip.custom.on { border-style: solid; border-color: var(--accent-fill); }
 .row-top.inline { align-items: center; flex-wrap: wrap; }
+
+/* Schritt 3: Marketing, Webseite, Aufträge */
+.quest-card { padding: 14px 16px; border-bottom: 1px solid var(--line, rgba(127,127,127,.18)); display: flex; flex-direction: column; gap: 6px; }
+.quest-card:last-child { border-bottom: 0; }
+.quest-card h3 { margin: 0; font-size: 16px; }
+.quest-card.offered { background: color-mix(in srgb, var(--accent, #e8a33d) 8%, transparent); }
+.quest-card .btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stars { color: #e8a33d; letter-spacing: 1px; font-size: 18px; }
+.stars.small { font-size: 14px; flex: none; }
+.review-text { font-style: italic; }
+.pad-row { padding: 8px 16px; }

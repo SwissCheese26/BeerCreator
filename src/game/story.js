@@ -59,7 +59,7 @@ export const CHAPTERS = [
     title: 'Kapitel 2 – Das Straßenfest',
     intro: 'Klaus hat probiert. Klaus hat es erzählt. Jetzt weiß es die ganze Straße – und er will „dein Garagenbier“ beim Straßenfest ausschenken. ' +
       'Verschenken ist erlaubt, verkaufen nicht.',
-    onEnter: s => unlock(s, 'verschenken', 'bierliga'),
+    onEnter: s => unlock(s, 'verschenken', 'bierliga', 'auftraege'),
     objectives: [
       { id: 'give20', text: 'Verschenke insgesamt 20 Liter Bier.', done: s => s.stats.givenL >= 20 },
       { id: 'rep8', text: 'Erreiche 8 Ruf.', done: s => s.reputation >= 8 },
@@ -74,7 +74,7 @@ export const CHAPTERS = [
     id: 'gewerbe',
     title: 'Kapitel 3 – Ein Gewerbe?',
     intro: '„Wo kann man das kaufen?“ Gute Frage. Die Antwort führt leider über ein Amt. Und über dein Gewissen: Man kann es auch heimlich versuchen.',
-    onEnter: s => unlock(s, 'verkauf', 'spenden'),
+    onEnter: s => unlock(s, 'verkauf', 'spenden', 'marketing'),
     objectives: [
       { id: 'legal', text: 'Kläre deinen Status (Gewerbe oder anderer Weg).', done: s => !!s.flags.done_gewerbe },
       { id: 'sell50', text: 'Verkaufe insgesamt 50 Liter.', done: s => s.stats.soldL >= 50 },
@@ -89,7 +89,7 @@ export const CHAPTERS = [
     id: 'keller',
     title: 'Kapitel 4 – Gerdas Keller',
     intro: 'Im Sommer ist die Garage eine Sauna, im Winter eine Gefriertruhe – deine Biere leiden. Zeit für Technik. Und Gerda hat da eine Idee.',
-    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse', 'fasskeller'); },
+    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse', 'fasskeller', 'webseite'); },
     objectives: [
       { id: 'gear', text: 'Kaufe einen 50-L-Kessel und einen Gärkühlschrank.', done: s => tierAtLeast(s, 'kettle', 'kessel50') && tierAtLeast(s, 'cooling', 'kuehlschrank') },
       { id: 'styles3', text: 'Braue drei verschiedene Bierstile.', done: s => s.stats.styles.length >= 3 },

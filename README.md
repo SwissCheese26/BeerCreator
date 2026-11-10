@@ -65,3 +65,10 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - **Cuvée**: zwei Biere verschneiden; Fassbier + frisches Bier gibt einen Bonus, sehr verschiedene Biere beißen sich.
 - **Stil-Labor** (ab Kapitel 5, Level 3): eigene Bierstile mit eigenen Zielwerten auf Basis eines gelernten Stils. Bekanntheit wächst mit gut verkauftem Bier und hebt den Preis; weit vom Basis-Stil entfernte Stile gelten als „bunt“.
 - **Produktion** (ab Kapitel 5): Brauhelfer (150 € im Monat) braut Sortiments-Rezepte aus dem Produktionsplan reihum und verkauft nach Regeln (selbst / Markt / Markt + Händler).
+
+## Schritt 3: Marketing, Webseite & Aufträge (0.3.0-beta)
+
+- **📣 Marketing** (ab Kapitel 3): Proben an fünf erfundene Kritiker schicken (Blog, YouTube, Instagram, Podcast, Fachmagazin) – jeder mit eigenem Geschmack, Reichweite und Mindest-Ruf. Gute Kritiken bringen Ruf und drei Wochen „Rummel“ (mehr Nachfrage), Verrisse kosten Ruf. Kunden vergeben 1–5 Sterne, der Schnitt wirkt auf die Nachfrage. Verkostungen (10/25/50 Gäste) bringen Ruf, Stammkunden für den Hofverkauf und direkte Bewertungen.
+- **🌐 Webseite & Onlineshop** (ab Kapitel 4): Agentur (500 €, sicherer, schönerer Shop) oder KI-Baukasten (90 €, löchrig). Öffnet den Absatzweg „Onlineshop“, dessen Nachfrage stark an den Sternen hängt. Sicherheit in vier Stufen; ohne Pflege drohen Hacks, Ausfälle und Datenschutz-Bußgelder, Backups verkürzen die Ausfallzeit.
+- **📮 Aufträge** (ab Kapitel 2): zehn Nebenquests von Leuten aus dem Dorf (Gerdas Geburtstag, Klaus' Hochzeit, Feuerwehrjubiläum, Ottokars Wildmenü, Bruder Anselms Fastenbier, Opas verlorene Seiten …) mit Frist und Belohnung.
+- Tests: `test/step3.test.js`, Zufalls-Bot `test/fuzz.test.js` (tausende wilde Aktionen ohne Absturz, NaN oder negative Werte).

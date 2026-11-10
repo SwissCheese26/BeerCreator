@@ -48,6 +48,8 @@ export const CHANNELS = {
               text: 'Kneipen kaufen mehr, zahlen aber weniger pro Liter.' },
   festival: { name: 'Festival-Stand',           icon: '🎪', ref: 9.0, base: 150, minRep: 25, legal: true, fee: 120, summer: true,
               text: 'Mai bis September. Top-Preis, aber 120 € Standgebühr pro Woche, in der du dort verkaufst.' },
+  online:   { name: 'Onlineshop (Versand)',     icon: '🌐', ref: 6.5, base: 60, minRep: 15, legal: true, web: true,
+              text: 'Deine Webseite verkauft in ganz Deutschland. Die Nachfrage hängt stark an deinen Sternen. Versand zahlt der Kunde, Verpackung du.' },
   abholen:  { name: 'Getränkehändler holt ab',  icon: '🚚', ref: 2.2, base: Infinity, minRep: 0, legal: true, unlimited: true, repFactor: 0.3,
               text: 'Der Händler nimmt jede Menge mit – aber er holt selbst ab, liefert aus und will mitverdienen. Wenig Geld pro Liter.' },
   schwarz:  { name: 'Unter der Hand',           icon: '🕶️', ref: 4.0, base: 40, minRep: 0,  legal: false,

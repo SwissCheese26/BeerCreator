@@ -21,6 +21,7 @@ export const FEATURES = {
   brauen: 'Brauen', einkauf: 'Einkauf', verschenken: 'Verschenken', bierliga: 'Bierliga',
   verkauf: 'Verkauf', spenden: 'Spenden', ausruestung: 'Ausrüstung', kurse: 'Kurse',
   fasskeller: 'Fasskeller & Cuvée', produktion: 'Produktion & Brauhelfer', stilwerkstatt: 'Stil-Labor (eigene Bierstile)',
+  marketing: 'Marketing (Proben, Bewertungen, Verkostung)', webseite: 'Webseite & Onlineshop', auftraege: 'Aufträge (Nebenquests)',
 };
 export const hasFeature = (s, f) => s.mode === 'sandbox' || (s.features || []).includes(f);
 export function unlock(s, ...feats) {

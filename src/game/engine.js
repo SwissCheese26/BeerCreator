@@ -10,6 +10,8 @@ import { qualityLabel } from './batch.js';
 import { ranking } from './league.js';
 import { customOf, customPriceFactor, addFame } from './styles.js';
 import { runAutomation, HELPER_WAGE } from './production.js';
+import { processReviews, rateSale, demandFactor, webMonthly, webOnline } from './marketing.js';
+import { questsDaily } from './quests.js';
 
 export const DEFAULT_BREWERY = 'Heinrichs Hausbrauerei';
 export const JOB_BUDGET = 80; // € pro 30 Tage, die du vom Gehalt fürs Brauen abzweigst
@@ -31,6 +33,8 @@ export function newGame({ mode = 'story', seed = 42, breweryName = DEFAULT_BREWE
     stats: { batches: 0, bestQuality: 0, styles: [], styleCount: {}, completedStyles: [], givenL: 0, soldL: 0, revenue: 0, taxPaid: 0,
       medals: [], donated: 0, donatedAbtei: 0, recentQ: [], recentStyles: [], raids: 0 },
     recipes: [], customStyles: [], barrels: [], auto: { helper: false, plan: [], sell: {}, next: 0, lastWarn: -99 },
+    reviews: { pending: [], list: [], last: {} }, ratings: { count: 0, sum: 0, recent: [] }, web: null, buzz: null, regulars: 0,
+    quests: { offered: [], active: [], done: [], failed: [], declined: [] },
     log: [],
   };
   if (sandbox) log(s, 'Sandbox-Modus: unbegrenztes Geld und Zutaten, volle Ausrüstung. Die Qualitäts-Simulation läuft trotzdem.');
@@ -46,8 +50,14 @@ export function newGame({ mode = 'story', seed = 42, breweryName = DEFAULT_BREWE
 export function migrate(s) {
   s.recipes ||= []; s.customStyles ||= []; s.barrels ||= [];
   s.auto ||= { helper: false, plan: [], sell: {}, next: 0, lastWarn: -99 };
+  s.reviews ||= { pending: [], list: [], last: {} }; s.ratings ||= { count: 0, sum: 0, recent: [] };
+  s.web ??= null; s.buzz ??= null; s.regulars ||= 0;
+  s.quests ||= { offered: [], active: [], done: [], failed: [], declined: [] };
+  if (s.mode === 'sandbox') { for (const f of Object.keys(FEATURES)) if (!s.features.includes(f)) s.features.push(f); }
   if (s.mode === 'story' && s.tutorial?.done) {
-    if (s.chapter >= 4 || s.ended) unlock(s, 'fasskeller');
+    if (s.chapter >= 2 || s.ended) unlock(s, 'auftraege');
+    if (s.chapter >= 3 || s.ended) unlock(s, 'marketing');
+    if (s.chapter >= 4 || s.ended) unlock(s, 'fasskeller', 'webseite');
     if (s.chapter >= 5 || s.ended) unlock(s, 'produktion', 'stilwerkstatt');
   }
   return s;
@@ -107,6 +117,7 @@ export function resolveEvent(s, choiceId) {
   need(choice, 'Unbekannte Option.');
   need(!choice.enabled || choice.enabled(s), 'Diese Option ist gerade nicht verfügbar (Geld oder Voraussetzung fehlt).');
   const text = choice.apply(s);
+  s.reputation = round2(clamp(s.reputation, 0, 100)); s.honor = round2(clamp(s.honor, 0, 100));
   log(s, text, 'story');
   if (choice.done !== false) s.flags['done_' + s.event.id] = true;
   s.event = null;
@@ -148,6 +159,8 @@ export function advanceDays(s, n = 1) {
       if (since % 30 === 0) monthlyCosts(s);
       if (s.day - s.yearStart >= YEAR_DAYS) yearEnd(s);
     }
+    processReviews(s);
+    questsDaily(s);
     runAutomation(s);
     checkStory(s);
     if (s.event) break; // Zeit bleibt stehen, bis entschieden wurde
@@ -163,6 +176,7 @@ function monthlyCosts(s) {
   if (s.flags.miete) bills.push(['Miete für Gerdas Keller', CELLAR_RENT]);
   if (s.license) bills.push(['Betriebshaftpflicht', INSURANCE_MONTH]);
   if (s.auto?.helper) bills.push(['Lohn Brauhelfer', HELPER_WAGE]);
+  webMonthly(s);
   for (const [what, eur] of bills) {
     if (s.cash >= eur) { s.cash = round2(s.cash - eur); log(s, `${what}: ${eur} €.`); }
     else if (what === 'Lohn Brauhelfer') { s.auto.helper = false; log(s, `👷 Du konntest den Brauhelfer nicht bezahlen (${eur} €) – er hat gekündigt.`, 'bad'); }
@@ -240,6 +254,8 @@ export function channelState(s, ch) {
   if (c.legal && !s.license) return { open: false, reason: 'Verkaufen ohne Gewerbe ist verboten. Verschenken geht.' };
   if (s.reputation < c.minRep) return { open: false, reason: `Braucht ${c.minRep} Ruf.` };
   if (c.summer && !isSummer(s.day)) return { open: false, reason: 'Festivals gibt es nur von Mai bis September.' };
+  if (c.web && !s.web) return { open: false, reason: 'Dafür brauchst du eine Webseite mit Shop.' };
+  if (c.web && !webOnline(s)) return { open: false, reason: `Die Webseite ist offline (noch ${s.web.offlineUntil - s.day} Tage).` };
   return { open: true };
 }
 /** Wochen-Nachfrage in Litern für einen Absatzweg. */
@@ -247,7 +263,8 @@ export function channelDemand(s, ch) {
   if (s.mode === 'sandbox') return Infinity;
   const c = CHANNELS[ch];
   if (c.unlimited) return Infinity;
-  return Math.floor(c.base * (0.5 + s.reputation / 100) * season(s.day));
+  const base = c.base * (c.web && s.web ? ({ agentur: 1.15 }[s.web.kind] || 1) : 1) + (ch === 'hof' ? s.regulars || 0 : 0);
+  return Math.floor(base * (0.5 + s.reputation / 100) * season(s.day) * demandFactor(s, ch));
 }
 export const channelRoom = (s, ch) => Math.max(0, channelDemand(s, ch) - (s.week.sold[ch] || 0));
 /** Preis €/L ab Brauerei: Referenzpreis × Qualität × Ruf (× Klosterbonus). */
@@ -297,6 +314,8 @@ export function sell(s, beerId, liters, channel = defaultChannel(s)) {
   if (gambrinBeer(s, b)) { toAbbey = round2(revenue * 0.3); s.stats.donatedAbtei = round2((s.stats.donatedAbtei || 0) + toAbbey); s.honor = round2(clamp(s.honor + toAbbey / 100, 0, 100)); }
   s.cash = round2(s.cash + revenue - tax - toAbbey);
   addFame(s, b, liters);
+  rateSale(s, b, liters, channel);
+  if (channel === 'online') s.stats.onlineL = round2((s.stats.onlineL || 0) + liters);
   s.stats.soldL = round2(s.stats.soldL + liters); s.stats.revenue = round2(s.stats.revenue + revenue); s.stats.taxPaid = round2(s.stats.taxPaid + tax);
   if (!sandbox) { // Ruf entsteht durch Qualität, nicht durch Masse
     let gain = liters / 10 * (b.quality - 65) / 30 * (c.repFactor ?? 1);

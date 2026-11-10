@@ -9,7 +9,7 @@ import { sell, channelState, channelRoom } from './engine.js';
 export const HELPER_WAGE = 150; // € pro 30 Tage (Minijob)
 export const SELL_RULES = {
   selbst: 'Ich verkaufe selbst',
-  markt:  'Hof, Gastro, Festival',
+  markt:  'Hof, Gastro, Festival, Online',
   alles:  'Markt + Rest an den Händler',
 };
 
@@ -76,7 +76,7 @@ export function autoSell(s) {
   for (const beer of s.beers) {
     const rule = a.sell[beer.name];
     if (!rule || rule === 'selbst' || beer.liters < 1) continue;
-    const order = ['festival', 'gastro', 'hof', ...(rule === 'alles' ? ['abholen'] : [])];
+    const order = ['festival', 'online', 'gastro', 'hof', ...(rule === 'alles' ? ['abholen'] : [])];
     for (const ch of order) {
       if (beer.liters < 1 || s.event) break;
       if (!channelState(s, ch).open) continue;

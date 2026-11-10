@@ -29,11 +29,15 @@ const TILES = [
   { id: 'barrel',  icon: '🛢️', name: 'Fasskeller & Cuvée', feature: 'fasskeller' },
   { id: 'styles',  icon: '🧪', name: 'Stil-Labor',      feature: 'stilwerkstatt' },
   { id: 'production', icon: '⚙️', name: 'Produktion',   feature: 'produktion' },
+  { id: 'quests',  icon: '📮', name: 'Aufträge',        feature: 'auftraege' },
+  { id: 'marketing', icon: '📣', name: 'Marketing',     feature: 'marketing' },
+  { id: 'web',     icon: '🌐', name: 'Webseite & Shop', feature: 'webseite' },
   { id: 'diary',   icon: '📔', name: 'Tagebuch',        feature: 'tagebuch' },
   { id: 'sudbuch', icon: '📖', name: 'Sudbuch',         feature: 'sudbuch' },
 ];
 const LOCK_HINT = { brauen: 'Kapitel 1', einkauf: 'Kapitel 1', verschenken: 'Kapitel 2', bierliga: 'Kapitel 2', verkauf: 'Kapitel 3',
-  spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4', fasskeller: 'Kapitel 4', produktion: 'Kapitel 5', stilwerkstatt: 'Kapitel 5' };
+  spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4', fasskeller: 'Kapitel 4', produktion: 'Kapitel 5', stilwerkstatt: 'Kapitel 5',
+  auftraege: 'Kapitel 2', marketing: 'Kapitel 3', webseite: 'Kapitel 4' };
 const GOAL_TILE = { brew2: 'brew', q50: 'brew', give20: 'cellar', rep8: 'cellar', sell50: 'cellar', gear: 'gear', styles3: 'brew', q65: 'brew',
   medal: 'cellar', rep50: 'cellar', cash4000: 'cellar' };
 const GOAL_HINT = {
@@ -172,6 +176,9 @@ function tileSub(t) {
     case 'sudbuch': return 'Anleitung & Wissen';
     case 'barrel': { const full = (s.barrels || []).filter(b => b.fill).length; return s.barrels?.length ? `${full} von ${s.barrels.length} Fässern belegt` : 'Fassreifung, Cuvée'; }
     case 'styles': return s.customStyles?.length ? `${s.customStyles.length} eigene Stile` : 'Eigene Biersorten';
+    case 'quests': { const q = s.quests || { offered: [], active: [] }; return q.offered.length ? `📬 ${q.offered.length} neues Angebot` : q.active.length ? `${q.active.length} laufend` : 'Nebenquests'; }
+    case 'marketing': { const p = s.reviews?.pending?.length; const a = g.ratingAvg(s); return p ? `📦 ${p} Probe unterwegs` : a != null ? `⭐ ${f1.format(a)} von 5` : 'Kritiker, Verkostung'; }
+    case 'web': return s.web ? (g.webOnline(s) ? '🟢 online' : '🔴 offline') : 'Agentur oder KI';
     case 'production': return s.auto?.helper ? `👷 läuft · ${s.auto.plan.length} Sorten im Plan` : 'Brauhelfer & Plan';
   }
   return '';
@@ -526,6 +533,9 @@ const GUIDE = [
   ['🛢️', 'Fasskeller & Cuvée', 'Starkes, dunkles Bier reift im Bourbon-, Whisky-, Rotwein- oder Cognacfass zu einem teuren Schatz – am besten 4–6 Monate. Oder verschneide zwei Biere zu einer eigenen Cuvée.'],
   ['🧪', 'Stil-Labor', 'Erfinde eigene Biersorten mit eigenen Zielwerten. Anfangs kennt sie niemand – gutes, verkauftes Bier macht sie bekannt und teurer.'],
   ['⚙️', 'Produktion', 'Ein Brauhelfer braut die Rezepte aus deinem Plan automatisch, sobald ein Tank frei ist, und verkauft nach deinen Regeln. Kostet Lohn.'],
+  ['📮', 'Aufträge', 'Leute aus dem Dorf wünschen sich Bier – mit Frist und Belohnung. Annehmen, passendes Bier brauen, abliefern. Wer die Frist verpasst, enttäuscht.'],
+  ['📣', 'Marketing', 'Schick Proben an Kritiker: Gute Kritiken bringen Ruf und Rummel (mehr Nachfrage). Jeder hat seinen Geschmack. Kunden vergeben Sterne, Verkostungen bringen Stammkunden.'],
+  ['🌐', 'Webseite', 'Agentur (teuer, sicher) oder KI-Baukasten (günstig, löchrig). Öffnet den Onlineshop. Ohne Updates und Backups drohen Hacks, Ausfälle und Datenschutz-Bußgelder.'],
   ['⭐', 'Ruf', 'Wie beliebt dein Bier ist. Wächst durch Qualität, Medaillen und Spenden – nicht durch Masse.'],
   ['🙏', 'Ansehen', 'Wie sehr man dir vertraut: Spenden und stabil gutes, klassisches Bier. Wer weiß, wer darauf aufmerksam wird …'],
   ['🎓', 'Level & Kurse', 'Jeder fertige Sud gibt Erfahrung. Höhere Level schalten Kurse für schwierigere Stile frei.'],
@@ -656,7 +666,109 @@ function productionView() {
   return panel('⚙️', 'Produktion', 'Mehrere Sorten nebeneinander fahren – automatisch', html);
 }
 
-const VIEWS = { barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
+// ---------- Marketing ----------
+const stars = x => '★'.repeat(Math.floor(x)) + (x % 1 >= 0.5 ? '⯪' : '') + '☆'.repeat(Math.max(0, 5 - Math.ceil(x)));
+function marketingView() {
+  const beers = s.beers.filter(b => b.liters >= 1);
+  const story = s.mode === 'story';
+  const avg = g.ratingAvg(s);
+  const beerSel = (id, min = 1) => {
+    const list = beers.filter(b => b.liters >= min);
+    return list.length ? `<select id="${id}" class="grow">${list.map(b => opt(b.id, `${b.name} · Q ${b.quality} · ${f1.format(b.liters)} L`)).join('')}</select>` : '';
+  };
+  let html = '';
+  if (s.buzz && s.buzz.until >= s.day) html += `<div class="license-card"><span class="channel-icon">🔥</span><div class="grow"><b>Rummel um dein Bier!</b>
+    <small>Nach der Kritik von ${esc(s.buzz.by)} fragen mehr Leute nach: Nachfrage ×${f2.format(s.buzz.factor)} noch ${s.buzz.until - s.day} Tage.</small></div></div>`;
+
+  // Proben verschicken
+  html += group('📦 Proben an Kritiker schicken', `<div class="row sub">Drei Flaschen (${g.SAMPLE_L} L) per Post. Nach 4–12 Tagen kommt die Kritik – oder auch nicht. Jeder hat seinen eigenen Geschmack.</div>
+    ${Object.entries(g.REVIEWERS).map(([id, r]) => {
+      const st = g.reviewerState(s, id);
+      const sel = st.open ? beerSel('rv-' + id) : '';
+      return `<div class="row col-row"><div class="row-top"><span class="row-label">${r.icon} ${esc(r.name)} <span class="sub">· ${esc(r.followers)}</span></span>
+          <span class="badge">${story ? `Versand ${eur(r.cost)}` : 'gratis'}</span></div>
+        <div class="sub">${esc(r.text)}${r.likes.length ? ` Mag: ${r.likes.map(x => esc(byId(STYLES, x).name)).join(', ')}.` : ''}</div>
+        ${st.open ? (sel ? `<div class="row-top inline">${sel}<button class="btn primary" data-action="sample" data-rv="${id}">📦 Probe schicken</button></div>` : '<div class="sub">Kein Bier im Lager.</div>')
+          : `<div class="sub">🔒 ${esc(st.reason)}</div>`}</div>`;
+    }).join('')}`);
+
+  // Kritiken
+  const list = (s.reviews?.list || []).slice().reverse();
+  html += group('📰 Kritiken', list.length ? list.slice(0, 8).map(r => `<div class="row col-row"><div class="row-top"><span class="row-label">${g.REVIEWERS[r.reviewer].icon} ${esc(g.REVIEWERS[r.reviewer].name)} über „${esc(r.beer)}“</span>
+      <span class="badge ${r.score >= 70 ? 'ok' : r.score >= 55 ? '' : 'low'}">${r.score}/100</span></div>
+      <div class="sub review-text">„${esc(r.text)}“</div><div class="sub">${g.dayLabel(r.day)} · Ruf ${r.rep >= 0 ? '+' : ''}${f1.format(r.rep)}</div></div>`).join('')
+    : empty('Noch keine Kritiken. Schick eine Probe los!'));
+
+  // Kundenstimmen
+  html += group('⭐ Kundenbewertungen', story ? `<div class="row"><span class="grow row-label">${avg != null ? `<span class="stars">${stars(avg)}</span> ${f1.format(avg)} von 5` : 'Noch keine Bewertungen'}
+      <div class="sub">${s.ratings?.count || 0} Bewertungen. Ab drei Bewertungen wirkt der Schnitt auf die Nachfrage – beim Onlineshop besonders stark.</div></span></div>
+    ${(s.ratings?.recent || []).slice(0, 6).map(r => `<div class="row"><span class="stars small">${stars(r.stars)}</span><span class="grow sub">„${esc(r.text)}“ – zu „${esc(r.beer)}“</span></div>`).join('')}`
+    : empty('Kundenbewertungen gibt es nur im Story-Modus.'));
+
+  // Verkostung
+  const left = s.flags.lastTasting == null ? 0 : g.TASTING_COOLDOWN - (s.day - s.flags.lastTasting);
+  html += group('🍻 Leute einladen (Verkostung)', `<div class="row sub">Du schenkst ${f1.format(g.TASTING_L_PER_GUEST)} L pro Gast aus. Gutes Bier bringt Ruf, Stammkunden für den Hofverkauf (gerade ${s.regulars || 0}) und direkte Bewertungen. Schlechtes spricht sich auch herum.</div>
+    ${left > 0 ? `<div class="row sub">⏳ Die nächste Verkostung lohnt sich in ${left} Tagen.</div>` : beers.length ? `<div class="row-top inline pad-row">${beerSel('tastingBeer', 4)}</div>
+      <div class="donate-grid">${Object.entries(g.TASTING_SIZES).map(([id, t]) => `<div class="donate-card"><b>${t.guests} Gäste</b>
+        <small>${f0.format(t.guests * g.TASTING_L_PER_GUEST)} L Bier · ${story ? eur(t.cost) + ' Snacks' : 'gratis'}</small>
+        <div class="btn-row"><button class="btn" data-action="tasting" data-size="${id}">Einladen</button></div></div>`).join('')}</div>` : empty('Kein Bier im Lager.')}`);
+  return panel('📣', 'Marketing', 'Kritiker, Kundenstimmen und Verkostungen', html);
+}
+
+// ---------- Webseite ----------
+function webView() {
+  const w = s.web, story = s.mode === 'story';
+  let html = '';
+  if (w) {
+    const k = g.WEB_KINDS[w.kind], online = g.webOnline(s), st = g.channelState(s, 'online');
+    html += `<div class="license-card"><span class="channel-icon">${online ? '🌐' : '💻'}</span><div class="grow">
+      <b>${online ? 'Deine Webseite ist online' : `Offline – noch ${w.offlineUntil - s.day} Tage`}</b>
+      <small>${esc(k.name)} · seit ${g.dayLabel(w.built)} · ${w.hacks ? `${w.hacks}× gehackt` : 'noch nie gehackt'} · Onlineshop: ${st.open ? `noch ${f0.format(g.channelRoom(s, 'online'))} L diese Woche` : esc(st.reason)}</small></div>
+      ${st.open ? '<button class="btn primary" data-go="cellar">Zum Verkauf →</button>' : ''}</div>`;
+    const risk = g.hackRisk(s);
+    html += group('🔒 Sicherheit', `<div class="row"><span class="grow row-label">Hack-Risiko pro Monat<div class="sub">Steigt mit dem Umsatz im Shop – je bekannter, desto interessanter für Angreifer.</div></span>
+        <span class="badge ${risk < 0.03 ? 'ok' : risk < 0.08 ? '' : 'low'}">${f1.format(risk * 100)} %</span></div>
+      ${g.SECURITY.map((x, i) => `<label class="row check-row"><input type="radio" name="sec" data-sec="${i}" ${w.security === i ? 'checked' : ''}>
+        <span class="grow"><span class="row-label">${esc(x.name)}${x.cost ? ` · ${eur(x.cost)} / Monat` : ''}</span><div class="sub">${esc(x.text)}</div></span></label>`).join('')}
+      <div class="row sub">Dazu kommen ${eur(g.WEB_HOSTING)} im Monat für Domain und Hosting.</div>`);
+  }
+  html += group(w ? '🔁 Neu bauen lassen' : '🛠️ Webseite bauen lassen', `<div class="donate-grid">${Object.entries(g.WEB_KINDS).map(([id, k]) => `<div class="donate-card"><span class="tile-icon">${k.icon}</span>
+      <b>${esc(k.name)}</b><small>${esc(k.text)}</small><small>Grund-Risiko: ${f0.format(k.risk * 100)} % pro Monat${k.look > 1 ? ' · schöner Shop: +15 % Nachfrage' : ''}</small>
+      <div class="btn-row"><button class="btn ${w?.kind === id ? '' : 'primary'}" data-action="web" data-kind="${id}" ${w?.kind === id ? 'disabled' : ''}>${w?.kind === id ? 'aktiv' : story ? eur(k.cost) : 'Nehmen'}</button></div></div>`).join('')}</div>
+    <div class="row sub">Mit Webseite öffnet sich der Absatzweg „Onlineshop“: ganz Deutschland, guter Preis – die Nachfrage hängt aber stark an deinen Sternen.${story && !s.license ? ' Verkaufen darfst du nur mit Gewerbe.' : ''}</div>`);
+  return panel('🌐', 'Webseite & Onlineshop', w ? 'Deine Seite, dein Shop – und ihre Sicherheit' : 'Agentur oder selbst mit KI?', html);
+}
+
+// ---------- Aufträge ----------
+function questsView() {
+  if (s.mode !== 'story') return panel('📮', 'Aufträge', 'Nebenquests', empty('Aufträge gibt es nur im Story-Modus.'));
+  const v = g.questView(s);
+  const beers = s.beers.filter(b => b.liters >= 1);
+  const person = who => { const [i, n] = g.QUEST_PEOPLE[who] || ['📮', '']; return `<span class="avatar">${i}</span><div><small>${esc(n)}</small>`; };
+  const need = q => q.kind === 'deliver' ? `${q.liters} L · Qualität ≥ ${q.minQ}${q.styles ? ' · ' + q.styles.map(x => esc(byId(STYLES, x).name)).join(', ') : ' · beliebiger Stil'}` : '';
+  const card = q => {
+    let body = '';
+    if (q.state === 'offered') body = `<div class="btn-row"><button class="btn primary" data-action="questAccept" data-q="${q.id}">Annehmen</button>
+        <button class="btn" data-action="questDecline" data-q="${q.id}">Ablehnen</button><span class="sub">Angebot gilt noch ${q.until - s.day} Tage</span></div>`;
+    else if (q.kind === 'goal') body = `<div class="goal-list">${q.steps.map(x => `<div class="goal ${x.done ? 'done' : ''}"><span class="check">${x.done ? '✓' : ''}</span><span class="grow">${esc(x.text)}</span></div>`).join('')}</div>`;
+    else {
+      const fit = beers.filter(b => g.questFits(s, q.id, b).ok);
+      body = fit.length ? `<div class="row-top inline"><select id="qb-${q.id}" class="grow">${fit.map(b => opt(b.id, `${b.name} · Q ${b.quality} · ${f1.format(b.liters)} L`)).join('')}</select>
+          <button class="btn primary" data-action="questDeliver" data-q="${q.id}">📦 Abliefern</button></div>`
+        : `<div class="sub">Noch kein passendes Bier im Lager.${q.styles ? ' Brau eins der gewünschten Stile!' : ''}</div>`;
+    }
+    return `<section class="quest-card ${q.state}"><div class="speaker">${person(q.who)}<h3>${esc(q.title)}</h3></div></div>
+      <p class="sub">${esc(q.text)}</p>${q.kind === 'deliver' ? `<div class="sub"><b>Gesucht:</b> ${need(q)}</div>` : ''}
+      ${q.state === 'active' && q.kind === 'deliver' ? `<div class="sub">⏳ noch ${q.due - s.day} Tage</div>` : ''}${body}</section>`;
+  };
+  let html = '';
+  html += group('📬 Neue Angebote', v.offered.length ? v.offered.map(card).join('') : empty('Gerade fragt niemand. Neue Aufträge kommen mit der Zeit – je weiter du in der Geschichte bist, desto mehr.'));
+  html += group('🗂️ Laufende Aufträge', v.active.length ? v.active.map(card).join('') : empty('Keine laufenden Aufträge.'));
+  html += `<p class="sub pad">Erledigt: ${v.done.length} von ${v.total}${v.done.length ? ' – ' + v.done.map(esc).join(', ') : ''}${v.failed.length ? ` · Verpasst: ${v.failed.map(esc).join(', ')}` : ''}</p>`;
+  return panel('📮', 'Aufträge', 'Nebenquests aus dem Dorf – mit Frist und Belohnung', html);
+}
+
+const VIEWS = { marketing: marketingView, web: webView, quests: questsView, barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
   donate: donateView, league: leagueView, diary: diaryView, sudbuch: sudbuchView };
 
 // ---------- Events ----------
@@ -742,6 +854,7 @@ export function initGameUi() {
     if (t.id === 'sYeast') { styleForm.yeastId = t.value; return; }
     if ('srange' in td) { const x = parseFloat(t.value); if (Number.isFinite(x)) styleForm.ranges[td.srange][+td.pos] = x; render(); return; }
     if ('plan' in td) { act(() => g.setPlan(s, td.plan, t.checked)); return; }
+    if ('sec' in td) { act(() => g.setSecurity(s, +td.sec)); return; }
     if ('sellrule' in td) { act(() => g.setSellRule(s, td.sellrule, t.value)); return; }
     if (t.id === 'sLevel') act(() => g.setSandboxLevel(s, +t.value));
   });
@@ -780,6 +893,12 @@ export function initGameUi() {
       case 'delStyle': if (confirm('Diesen Stil löschen? Gespeicherte Rezepte und Bier im Lager bleiben erhalten.')) act(() => g.deleteStyle(s, d.id)); break;
       case 'brewCustom': { const cs = g.customOf(s, d.id); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); go('brew'); } break; }
       case 'hireHelper': act(() => g.hireHelper(s)); break;
+      case 'sample': act(() => { g.sendSample(s, d.rv, +$('rv-' + d.rv).value); toast('📦 Unterwegs! Die Kritik kommt in 4–12 Tagen.', 'good'); }); break;
+      case 'tasting': act(() => { const r = g.hostTasting(s, +$('tastingBeer').value, d.size); toast(`🍻 Verkostung vorbei: Ruf ${r.rep >= 0 ? '+' : ''}${f1.format(r.rep)}${r.regulars ? `, ${r.regulars} neue Stammkunden` : ''}.`, r.rep >= 0 ? 'good' : 'bad'); }); break;
+      case 'web': if (!s.web || confirm('Die alte Seite wird ersetzt. Weiter?')) act(() => g.buildWebsite(s, d.kind)); break;
+      case 'questAccept': act(() => g.acceptQuest(s, d.q)); break;
+      case 'questDecline': act(() => g.declineQuest(s, d.q)); break;
+      case 'questDeliver': act(() => { g.deliverQuest(s, d.q, +$('qb-' + d.q).value); toast('✅ Auftrag erledigt! Siehe Tagebuch.', 'good'); }); break;
       case 'fireHelper': act(() => g.fireHelper(s)); break;
       case 'addMalt': {
         const r = brewForm.recipe, used = new Set(r.malts.map(m => m.id));
