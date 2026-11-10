@@ -52,7 +52,7 @@ test('Absatzwege: eigene Wochen-Nachfrage, Ruf-Schwellen, Festival nur im Sommer
   assert.ok(g.channelState(s, 'hof').open);
   const room = g.channelRoom(s, 'hof');
   assert.ok(room > 5 && room < 40, `room ${room}`);
-  g.sell(s, 99, room, 'hof');
+  g.sell(s, 99, room, 'hof'); s.reputation = 0; // Rufgewinn aus dem Verkauf hebt sonst die Nachfrage minimal an
   assert.throws(() => g.sell(s, 99, 1, 'hof'), /ausverkauft/);
   // Der Getränkehändler holt alles ab – aber deutlich billiger
   const rest = s.beers[0].liters;

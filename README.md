@@ -72,3 +72,11 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - **🌐 Webseite & Onlineshop** (ab Kapitel 4): Agentur (500 €, sicherer, schönerer Shop) oder KI-Baukasten (90 €, löchrig). Öffnet den Absatzweg „Onlineshop“, dessen Nachfrage stark an den Sternen hängt. Sicherheit in vier Stufen; ohne Pflege drohen Hacks, Ausfälle und Datenschutz-Bußgelder, Backups verkürzen die Ausfallzeit.
 - **📮 Aufträge** (ab Kapitel 2): zehn Nebenquests von Leuten aus dem Dorf (Gerdas Geburtstag, Klaus' Hochzeit, Feuerwehrjubiläum, Ottokars Wildmenü, Bruder Anselms Fastenbier, Opas verlorene Seiten …) mit Frist und Belohnung.
 - Tests: `test/step3.test.js`, Zufalls-Bot `test/fuzz.test.js` (tausende wilde Aktionen ohne Absturz, NaN oder negative Werte).
+
+## Schritt 4: Standort, Technik, Marke, Industrie (0.4.0-beta)
+
+- **📍 Startort** beim neuen Story-Spiel: Kesselbach (Dorf, Hofverkauf, günstiges Malz), Nordhafen (Großstadt, Kneipen & Craft, teure Miete), Gipfelbrunn (Ferienort, Festivals) oder Lindenberg (Unistadt, viel Durst, schmale Preise, eigene Stile werden schneller bekannt). Jeder Ort hat Lieblingsstile.
+- **🔬 Technik** (ab Kapitel 5): Plattenfilter (trüb oder blank – Pils gehört filtriert, Weizen naturtrüb), Sensorik-Schulung, Hefe-Labor, Kryo-Hopfen, Wärmerückgewinnung, Abfüllanlage, Dosenlinie, Zentrifuge.
+- **🎨 Marke & Design** (ab Kapitel 4): Icon-Creator (Symbol, Farbe, Form, Kürzel) – das Logo erscheint in der Kopfzeile. Sieben Flaschen (Euro, Bügel, Steinie, Longneck, belgische Korkenflasche, Dose, eigene Designerflasche) und sieben Gläser; pro Bier wählbar. Passende Aufmachung hebt Preis und Kritiken, ein Exklusivbier in der Massenflasche wirkt billig, eine Luxusflasche für Durchschnittsbier kostet Vertrauen. Aufträge: Logo-Gläser, eigene Kristall-Glasform, eigene Flaschenform, Etikett vom Grafikbüro.
+- **🏭 Industrie** (ab Kapitel 6): Lohnbrauen (500–5000 L, etwas weniger Qualität) und Übernahme kleiner Konkurrenten aus der Bierliga (Wochengewinn, Ligapunkte, Rückverkauf mit Abschlag).
+- Tests: `test/step4.test.js`; Zufalls-Bot deckt alle neuen Aktionen und Startorte ab.

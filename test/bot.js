@@ -53,8 +53,8 @@ function useExtras(s) {
   if (g.hasFeature(s, 'webseite') && gearDone && s.license && !s.web && s.cash > 1500) { try_(() => g.buildWebsite(s, 'ki')); try_(() => g.setSecurity(s, 2)); }
 }
 
-export function playStory({ seed = 1, maxDays = 1500, verbose = false, extras = false } = {}) {
-  const s = g.newGame({ mode: 'story', seed });
+export function playStory({ seed = 1, maxDays = 1500, verbose = false, extras = false, location = 'kesselbach' } = {}) {
+  const s = g.newGame({ mode: 'story', seed, location });
   playTutorial(s);
   let brewed = 0;
   while (!s.ended && s.day < START + maxDays) {

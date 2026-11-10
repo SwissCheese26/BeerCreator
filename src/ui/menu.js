@@ -1,6 +1,6 @@
 // Hauptmenü: Story, Sandbox, Rezept-Rechner, Beenden.
 import { openGame, loadGame, initGameUi } from './game.js';
-import { dayLabel, levelInfo, CHAPTERS } from '../game/index.js';
+import { dayLabel, levelInfo, CHAPTERS, LOCATIONS } from '../game/index.js';
 
 const $ = id => document.getElementById(id);
 const VIEWS = ['menuView', 'gameView', 'calcView'];
@@ -33,6 +33,9 @@ let pendingMode = null;
 function startNew(mode) {
   if (loadGame(mode) && !confirm(`Der gespeicherte ${mode === 'story' ? 'Story' : 'Sandbox'}-Spielstand wird überschrieben. Neu beginnen?`)) return;
   pendingMode = mode;
+  $('locPick').hidden = mode !== 'story';
+  $('locPick').innerHTML = Object.entries(LOCATIONS).map(([id, l], i) => `<label class="loc-card"><input type="radio" name="loc" value="${id}" ${i === 0 ? 'checked' : ''}>
+    <span class="loc-icon">${l.icon}</span><b>${l.name}</b><small class="loc-kind">${l.kind}</small><small>${l.text}</small></label>`).join('');
   $('nameModal').hidden = false;
   $('nameInput').select();
 }
@@ -47,7 +50,8 @@ $('nameForm').addEventListener('submit', e => {
   const name = $('nameInput').value.trim();
   if (name.length < 2) return;
   $('nameModal').hidden = true;
-  openGame(pendingMode, true, () => show('menuView'), name);
+  const loc = document.querySelector('#locPick input[name="loc"]:checked')?.value;
+  openGame(pendingMode, true, () => show('menuView'), name, pendingMode === 'story' ? loc : undefined);
   show('gameView');
 });
 $('nameCancel').addEventListener('click', () => { $('nameModal').hidden = true; });

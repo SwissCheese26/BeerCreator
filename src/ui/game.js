@@ -32,12 +32,15 @@ const TILES = [
   { id: 'quests',  icon: '📮', name: 'Aufträge',        feature: 'auftraege' },
   { id: 'marketing', icon: '📣', name: 'Marketing',     feature: 'marketing' },
   { id: 'web',     icon: '🌐', name: 'Webseite & Shop', feature: 'webseite' },
+  { id: 'brand',   icon: '🎨', name: 'Marke & Design',  feature: 'marke' },
+  { id: 'tech',    icon: '🔬', name: 'Technik',         feature: 'technik' },
+  { id: 'industry', icon: '🏭', name: 'Industrie',      feature: 'industrie' },
   { id: 'diary',   icon: '📔', name: 'Tagebuch',        feature: 'tagebuch' },
   { id: 'sudbuch', icon: '📖', name: 'Sudbuch',         feature: 'sudbuch' },
 ];
 const LOCK_HINT = { brauen: 'Kapitel 1', einkauf: 'Kapitel 1', verschenken: 'Kapitel 2', bierliga: 'Kapitel 2', verkauf: 'Kapitel 3',
   spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4', fasskeller: 'Kapitel 4', produktion: 'Kapitel 5', stilwerkstatt: 'Kapitel 5',
-  auftraege: 'Kapitel 2', marketing: 'Kapitel 3', webseite: 'Kapitel 4' };
+  auftraege: 'Kapitel 2', marketing: 'Kapitel 3', webseite: 'Kapitel 4', marke: 'Kapitel 4', technik: 'Kapitel 5', industrie: 'Kapitel 6' };
 const GOAL_TILE = { brew2: 'brew', q50: 'brew', give20: 'cellar', rep8: 'cellar', sell50: 'cellar', gear: 'gear', styles3: 'brew', q65: 'brew',
   medal: 'cellar', rep50: 'cellar', cash4000: 'cellar' };
 const GOAL_HINT = {
@@ -65,9 +68,9 @@ export function loadGame(mode) {
 }
 function save() { try { localStorage.setItem(KEY(s.mode), JSON.stringify(s)); } catch {} }
 
-export function openGame(mode, fresh, exit, breweryName) {
+export function openGame(mode, fresh, exit, breweryName, location) {
   onExit = exit;
-  s = (!fresh && loadGame(mode)) || g.newGame({ mode, seed: Date.now() % 100000, breweryName });
+  s = (!fresh && loadGame(mode)) || g.newGame({ mode, seed: Date.now() % 100000, breweryName, location });
   view = 'home'; overlay = null; brewForm.recipe = null;
   save(); render();
 }
@@ -100,7 +103,9 @@ const go = v => { view = v; render(); $('gBody').scrollTop = 0; window.scrollTo(
 function render() {
   const sum = g.summary(s), lv = sum.level, sandbox = s.mode === 'sandbox';
   $('gName').textContent = s.breweryName;
-  $('gChapter').textContent = sandbox ? 'Sandbox' : s.tutorial.done ? sum.chapter : 'Prolog – Opas Sudbuch';
+  const loc = g.locOf(s);
+  $('gChapter').textContent = `${sandbox ? 'Sandbox' : s.tutorial.done ? sum.chapter : 'Prolog – Opas Sudbuch'} · ${loc.icon} ${loc.name}`;
+  $('gLogo').innerHTML = s.brand?.designed ? logoHtml(s.brand, 40) : '<img src="../icon.png" alt="">';
   const chip = (icon, label, value, title = '') => `<div class="chip-stat" title="${esc(title)}"><span>${icon}</span><b>${value}</b><small>${label}</small></div>`;
   $('gStats').innerHTML = [
     chip('📅', 'Datum', g.dayLabel(s.day).replace(/, Jahr (\d+)/, ' · J$1')),
@@ -179,6 +184,9 @@ function tileSub(t) {
     case 'quests': { const q = s.quests || { offered: [], active: [] }; return q.offered.length ? `📬 ${q.offered.length} neues Angebot` : q.active.length ? `${q.active.length} laufend` : 'Nebenquests'; }
     case 'marketing': { const p = s.reviews?.pending?.length; const a = g.ratingAvg(s); return p ? `📦 ${p} Probe unterwegs` : a != null ? `⭐ ${f1.format(a)} von 5` : 'Kritiker, Verkostung'; }
     case 'web': return s.web ? (g.webOnline(s) ? '🟢 online' : '🔴 offline') : 'Agentur oder KI';
+    case 'brand': return s.brand?.designed ? `${esc(s.brand.symbol)} ${esc(s.brand.text || 'eigenes Logo')}` : 'Logo, Flaschen, Gläser';
+    case 'tech': return `${(s.tech || []).length} von ${Object.keys(g.TECH).length} Anlagen`;
+    case 'industry': return s.owned?.length ? `🤝 ${s.owned.length} Tochterbrauerei${s.owned.length > 1 ? 'en' : ''}` : s.contracts?.length ? '🏭 Lohnbrau läuft' : 'Lohnbrauen, Übernahmen';
     case 'production': return s.auto?.helper ? `👷 läuft · ${s.auto.plan.length} Sorten im Plan` : 'Brauhelfer & Plan';
   }
   return '';
@@ -270,7 +278,7 @@ function brewView() {
   const fc = g.forecast(sim, r);
   const pot = fc.potential, c = fc.preview.calc;
   const st = g.styleView(r), fit = g.styleFit(r.styleId);
-  const run = sandbox ? 0 : g.runCost(r.batchL) + g.optionCost(r);
+  const run = sandbox ? 0 : g.runCostFor(s, r.batchL) + g.optionCost(r);
   const free = g.slotsOf(s) - s.batches.filter(b => b.status === 'gaerend').length;
   const reif = g.REIFUNG[fit.reif];
   const recipes = s.recipes || [];
@@ -304,7 +312,9 @@ function brewView() {
       <select id="bYeast">${yeastOpts}</select></div>
     <div class="row"><span class="grow row-label">🌡️ Maischverfahren<div class="sub">${esc(g.MASH_PROGRAMS[g.mashProgramOf(r)].text)}${g.MASH_PROGRAMS[g.mashProgramOf(r)].costPerL ? ` (+${eur(g.MASH_PROGRAMS[g.mashProgramOf(r)].costPerL * r.batchL)} Energie)` : ''}</div></span>
       <select id="bMash">${Object.entries(g.MASH_PROGRAMS).map(([id, m]) => opt(id, m.name, id === g.mashProgramOf(r))).join('')}</select></div>
-    <label class="row check-row"><input type="checkbox" id="bReif" ${r.reifung ? 'checked' : ''}><span class="grow row-label">⏳ ${esc(reif.name)}<div class="sub">${esc(reif.text)} +${reif.days} Tage im Gärtank, +${eur(reif.costPerL * r.batchL)}.</div></span></label>`);
+    <label class="row check-row"><input type="checkbox" id="bReif" ${r.reifung ? 'checked' : ''}><span class="grow row-label">⏳ ${esc(reif.name)}<div class="sub">${esc(reif.text)} +${reif.days} Tage im Gärtank, +${eur(reif.costPerL * r.batchL)}.</div></span></label>
+    ${g.hasTech(s, 'filter') ? `<div class="row"><span class="grow row-label">🧊 Klärung<div class="sub">${{ klar: 'Dieser Stil gehört blank filtriert.', trueb: 'Dieser Stil ist naturtrüb – nicht filtrieren!' }[g.FILTER_PREF[r.styleId]] || 'Bei diesem Stil ist beides üblich.'}${g.hasTech(s, 'zentrifuge') ? '' : ' Filtrieren kostet 4 % Volumen.'}</div></span>
+      <select id="bFilter">${opt('0', '🌫️ naturtrüb', !r.filter)}${opt('1', '✨ filtriert (blank)', !!r.filter)}</select></div>` : ''}`);
 
   const maltRows = r.malts.map((m, i) => {
     const info = byId(MALTS, m.id), cm = c.malts[i];
@@ -351,7 +361,7 @@ function brewView() {
     <div class="tricks">${pot.tricks.map(t => `<div class="trick ${t.ok ? 'ok' : t.pts > 0 ? 'half' : ''}"><span class="check">${t.ok ? '✓' : t.pts > 0 ? '½' : ''}</span>
       <div class="grow"><b>${esc(t.label)}</b>${t.ok ? '' : `<small>${esc(t.hint)}</small>`}</div><span class="pts">+${t.max}</span></div>`).join('')}</div>
     <div class="expect"><small>Erwartete Qualität</small><b>${fc.low === fc.high ? fc.low : `${fc.low}–${fc.high}`}</b>
-      ${fc.deductions.length ? `<ul>${fc.deductions.map(d => `<li>−${f0.format(d.pts)} ${esc(d.label)}</li>`).join('')}</ul>` : '<p class="sub">Keine Abzüge erwartet – Brauerglück entscheidet den Rest.</p>'}
+      ${fc.deductions.length || fc.bonuses?.length ? `<ul>${fc.deductions.map(d => `<li>−${f0.format(d.pts)} ${esc(d.label)}</li>`).join('')}${(fc.bonuses || []).map(d => `<li class="${d.pts > 0 ? 'plus' : ''}">${d.pts > 0 ? '+' : '−'}${f0.format(Math.abs(d.pts))} ${esc(d.label)}</li>`).join('')}</ul>` : '<p class="sub">Keine Abzüge erwartet – Brauerglück entscheidet den Rest.</p>'}
       <p class="sub">🦠 Infektionsrisiko ca. ${f0.format(fc.infection * 100)} % · ⏱️ fertig in ${fc.readyIn} Tagen</p></div>
   </section>`;
   right += group('💶 Kosten', !sandbox ? (now.missing.length ? `<div class="row"><span class="grow">🛒 Fehlende Zutaten<div class="sub">${esc(now.missing.join(', '))}</div></span><b>${buyError ? '–' : eur(buyCost)}</b></div>` : '<div class="row"><span class="grow">🛒 Zutaten aus dem Lager</span><b>0,00 €</b></div>') +
@@ -465,14 +475,15 @@ function cellarView() {
   html += group('Fertiges Bier', beers.length ? beers.map(b => {
     const openCh = has('verkauf') ? chans.filter(([id]) => g.channelState(s, id).open) : [];
     return `<div class="row col-row beer-row">
-      <div class="row-top"><span class="row-label"><span class="swatch-inline" style="background:${ebcToHex(b.ebc)}"></span>${esc(b.name)}${b.barrel && b.barrel !== 'cuvee' ? ' <span class="tag">🛢️ Fass</span>' : ''}${b.blend ? ' <span class="tag">🍷 Cuvée</span>' : ''}${b.custom ? ` <span class="tag">🧪 ${esc(b.custom.name)}</span>` : ''}</span>
+      <div class="row-top"><span class="row-label"><span class="swatch-inline" style="background:${ebcToHex(b.ebc)}"></span>${esc(b.name)}${b.barrel && b.barrel !== 'cuvee' ? ' <span class="tag">🛢️ Fass</span>' : ''}${b.blend ? ' <span class="tag">🍷 Cuvée</span>' : ''}${b.custom ? ` <span class="tag">🧪 ${esc(b.custom.name)}</span>` : ''}${b.filtered ? ' <span class="tag">✨ filtriert</span>' : ''}${b.industrial ? ' <span class="tag">🏭 Lohnbrau</span>' : ''}</span>
         <span class="badge ${b.quality >= 70 ? 'ok' : b.quality >= 50 ? '' : 'low'}">Qualität ${b.quality} · ${esc(g.qualityLabel(b.quality))}</span></div>
       <div class="sub">${f2.format(b.liters)} L · ${f1.format(b.abv)} % vol · ${f0.format(b.ibu)} IBU · ${f0.format(b.ebc)} EBC</div>
+      ${has('marke') ? packRow(b) : ''}
       <div class="row-top inline">
         <label class="sub"><input type="number" id="liters-${b.id}" min="0.5" step="0.5" max="${b.liters}" value="${Math.min(Math.floor(b.liters) || b.liters, 10)}"> L</label>
         <span class="btn-row">
           ${has('verschenken') ? `<button class="btn" data-action="give" data-beer="${b.id}">🎁 Verschenken</button>` : ''}
-          ${openCh.length ? `<select id="ch-${b.id}">${openCh.map(([id, c]) => `<option value="${id}">${c.icon} ${esc(c.name)} · ${eur(g.priceFor(s, b, id))}/L</option>`).join('')}</select>
+          ${openCh.length ? `<select id="ch-${b.id}">${openCh.map(([id, c]) => `<option value="${id}">${c.icon} ${esc(c.name)} · ${eur(g.netPriceFor(s, b, id))}/L</option>`).join('')}</select>
           <button class="btn" data-action="sellMax" data-beer="${b.id}" title="So viel wie möglich über den gewählten Absatzweg">Max</button>
           <button class="btn primary" data-action="sell" data-beer="${b.id}">💶 Verkaufen</button>` : ''}
         </span></div>
@@ -536,6 +547,10 @@ const GUIDE = [
   ['📮', 'Aufträge', 'Leute aus dem Dorf wünschen sich Bier – mit Frist und Belohnung. Annehmen, passendes Bier brauen, abliefern. Wer die Frist verpasst, enttäuscht.'],
   ['📣', 'Marketing', 'Schick Proben an Kritiker: Gute Kritiken bringen Ruf und Rummel (mehr Nachfrage). Jeder hat seinen Geschmack. Kunden vergeben Sterne, Verkostungen bringen Stammkunden.'],
   ['🌐', 'Webseite', 'Agentur (teuer, sicher) oder KI-Baukasten (günstig, löchrig). Öffnet den Onlineshop. Ohne Updates und Backups drohen Hacks, Ausfälle und Datenschutz-Bußgelder.'],
+  ['📍', 'Standort', 'Wo du anfängst, wählst du beim neuen Spiel: Dorf (Hofverkauf, günstiges Malz), Großstadt (Kneipen, Craft, teure Miete), Bergdorf (Touristen, Feste) oder Unistadt (viel Durst, wenig Geld, Experimente).'],
+  ['🎨', 'Marke & Design', 'Eigenes Logo im Icon-Creator, Etikett vom Grafikbüro, Logo-Gläser, eigene Flaschenform. Im Lager wählst du pro Bier Flasche und Glas – passend wirkt edel, unpassend billig.'],
+  ['🔬', 'Technik', 'Filter (trüb oder blank), Hefe-Labor, Kryo-Hopfen, Wärmerückgewinnung, Abfüllanlage, Dosenlinie, Zentrifuge: bessere Qualität oder geringere Kosten.'],
+  ['🏭', 'Industrie', 'Lohnbrauerei braut dein Rezept in großen Mengen (etwas weniger Qualität). Kleine Konkurrenten kannst du übernehmen – sie bringen Wochengewinn und Ligapunkte.'],
   ['⭐', 'Ruf', 'Wie beliebt dein Bier ist. Wächst durch Qualität, Medaillen und Spenden – nicht durch Masse.'],
   ['🙏', 'Ansehen', 'Wie sehr man dir vertraut: Spenden und stabil gutes, klassisches Bier. Wer weiß, wer darauf aufmerksam wird …'],
   ['🎓', 'Level & Kurse', 'Jeder fertige Sud gibt Erfahrung. Höhere Level schalten Kurse für schwierigere Stile frei.'],
@@ -768,7 +783,85 @@ function questsView() {
   return panel('📮', 'Aufträge', 'Nebenquests aus dem Dorf – mit Frist und Belohnung', html);
 }
 
-const VIEWS = { marketing: marketingView, web: webView, quests: questsView, barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
+// ---------- Marke & Design ----------
+const brandForm = { symbol: null, color: null, shape: null, text: null };
+/** Logo als kleines HTML-Abzeichen (ohne externe Bilder). */
+function logoHtml(b, size = 64) {
+  const fs = Math.round(size * 0.42);
+  return `<span class="logo-badge ${esc(b.shape)}" style="--logo:${esc(b.color)};--size:${size}px"><span class="logo-sym" style="font-size:${fs}px">${esc(b.symbol)}</span>${b.text ? `<span class="logo-txt">${esc(b.text)}</span>` : ''}</span>`;
+}
+function brandView() {
+  const cur = g.brandOf(s);
+  for (const k of ['symbol', 'color', 'shape', 'text']) if (brandForm[k] == null) brandForm[k] = cur[k];
+  const story = s.mode === 'story';
+  let html = `<div class="brand-studio"><div class="brand-preview">${logoHtml(brandForm, 128)}
+      <div class="label-mock" style="--logo:${esc(brandForm.color)}"><div class="label-top">${logoHtml(brandForm, 40)}<b>${esc(s.breweryName)}</b></div><small>Etikett-Vorschau</small></div></div>
+    <div class="brand-tools">
+      <h3>Symbol</h3><div class="sym-grid">${g.BRAND_SYMBOLS.map(x => `<button class="sym ${x === brandForm.symbol ? 'on' : ''}" data-bsym="${x}" aria-label="Symbol ${x}">${x}</button>`).join('')}</div>
+      <h3>Farbe</h3><div class="sym-grid">${g.BRAND_COLORS.map(x => `<button class="swatch-btn ${x === brandForm.color ? 'on' : ''}" data-bcol="${x}" style="background:${x}" aria-label="Farbe ${x}"></button>`).join('')}</div>
+      <h3>Form</h3><div class="btn-row">${Object.entries(g.BRAND_SHAPES).map(([id, n]) => `<button class="btn ${id === brandForm.shape ? 'primary' : ''}" data-bshape="${id}">${n}</button>`).join('')}</div>
+      <h3>Kürzel (bis 4 Zeichen)</h3><input type="text" id="bText" class="text-input" maxlength="4" value="${esc(brandForm.text)}" placeholder="z. B. HHB">
+      <div class="btn-row"><button class="btn primary" data-action="saveBrand">🎨 Logo übernehmen</button>${cur.designed ? '<span class="sub">Dein Logo steht oben neben dem Namen.</span>' : '<span class="sub">Ein eigenes Logo macht dein Bier wiedererkennbar (+1 % Preis).</span>'}</div>
+    </div></div>`;
+  html += group('🧾 Aufträge an Handwerker', `<div class="donate-grid">${Object.entries(g.ORDERS).map(([id, o]) => {
+      const done = g.hasOrder(s, id);
+      return `<div class="donate-card"><span class="tile-icon">${o.icon}</span><b>${esc(o.name)}</b><small>${esc(o.text)}</small>
+        <div class="btn-row"><button class="btn ${done ? '' : 'primary'}" data-action="order" data-id="${id}" ${done ? 'disabled' : ''}>${done ? '✓ erledigt' : story ? eur(o.cost) : 'Nehmen'}</button></div></div>`;
+    }).join('')}</div>`);
+  html += group('🍾 Flaschen – was passt wozu?', Object.entries(g.BOTTLES).map(([id, b]) => {
+    const locked = (b.tech && !g.hasTech(s, b.tech)) || (b.order && !g.hasOrder(s, b.order));
+    return `<div class="row"><span class="ico">${b.icon}</span><span class="grow"><span class="row-label">${esc(b.name)}${locked ? ' 🔒' : ''}</span>
+      <div class="sub">${esc(b.text)} ${b.suits === 'alle' ? 'Passt zu allem.' : 'Passt zu: ' + b.suits.map(x => esc(byId(STYLES, x).name)).join(', ')}</div></span>
+      <span class="badge">${b.cost ? '+' + eur(b.cost) + '/L' : 'Standard'}</span></div>`;
+  }).join('') + '<div class="row sub">Im Lager wählst du pro Bier Flasche und Glas. Ein belgisches Exklusivbier in der Massenflasche wirkt billig – Korken und Kelch machen es edel. Eine Luxusflasche für Durchschnittsbier nimmt dir aber keiner ab.</div>');
+  html += group('🍷 Gläser – für Kneipe und Fest', Object.values(g.GLASSES).map(x => `<div class="row"><span class="ico">${x.icon}</span><span class="grow"><span class="row-label">${esc(x.name)}</span>
+      <div class="sub">${x.suits.map(y => esc(byId(STYLES, y).name)).join(', ')}</div></span></div>`).join(''));
+  return panel('🎨', 'Marke & Design', 'Logo, Etikett, Flaschen und Gläser – das Auge trinkt mit', html);
+}
+
+// ---------- Technik ----------
+function techView() {
+  const story = s.mode === 'story', lvl = g.skillLevel(s);
+  const html = `<div class="donate-grid">${Object.entries(g.TECH).map(([id, t]) => {
+    const own = g.hasTech(s, id);
+    const why = own ? '' : t.needs && !g.hasTech(s, t.needs) ? `braucht ${g.TECH[t.needs].name}` : story && lvl < t.level ? `ab Level ${t.level}` : '';
+    return `<div class="donate-card ${own ? 'owned' : ''}"><span class="tile-icon">${t.icon}</span><b>${esc(t.name)}</b><small>${esc(t.text)}</small>
+      <div class="btn-row"><button class="btn ${own ? '' : 'primary'}" data-action="tech" data-id="${id}" ${own || why ? 'disabled' : ''}>${own ? '✓ installiert' : why ? '🔒 ' + esc(why) : story ? eur(t.cost) : 'Nehmen'}</button></div></div>`;
+  }).join('')}</div>
+  <p class="sub pad">Mit dem Plattenfilter erscheint beim Brauen die Wahl „filtriert oder naturtrüb“. Pils, Kölsch & Co. gehören blank, Weizen, Witbier und NEIPA trüb.</p>`;
+  return panel('🔬', 'Technik', 'Neue Anlagen und Verfahren für bessere und günstigere Biere', html);
+}
+
+// ---------- Industrie & Übernahmen ----------
+function industryView() {
+  const story = s.mode === 'story';
+  const recipes = s.recipes || [];
+  const c = g.CONTRACT;
+  const running = (s.contracts || [])[0];
+  let html = group(`${c.icon} Lohnbrauen bei der ${esc(c.partner)}`, `<div class="row sub">Eine Großbrauerei braut dein Rezept in großen Mengen (${c.minL}–${c.maxL} L) für ${eur(c.costPerL)}/L inklusive Zutaten.
+      Das Bier verliert dabei etwas Charakter (ca. −${c.loss} Qualität), dafür hast du auf einen Schlag viel Ware – z. B. für den Händler oder den Onlineshop.</div>
+    ${running ? `<div class="row"><span class="grow row-label">In Arbeit: ${f0.format(running.liters)} L „${esc(running.recipe.name)}“</span><span class="badge">fertig in ${running.readyDay - s.day} Tagen</span></div>`
+      : recipes.length ? `<div class="row-top inline pad-row"><select id="ctRecipe" class="grow">${recipes.map(r => opt(r.name, `${r.name} · Potenzial ${g.recipePotential(r).total}`)).join('')}</select>
+        <label class="sub"><input type="number" id="ctL" min="${c.minL}" max="${c.maxL}" step="100" value="1000"> L</label>
+        <button class="btn primary" data-action="contract">🏭 Beauftragen</button></div>` : empty('Erst ein Rezept ins Sortiment legen (unter „Brauen“).')}`);
+  const list = g.forSale(s);
+  const income = s.stats.breweryIncome || 0;
+  html += group('🤝 Brauereien übernehmen', `<div class="row sub">Kleine Konkurrenten aus der Bierliga stehen zum Verkauf. Sie bringen jede Woche Gewinn (je nach Saison schwankend), ihre Punkte zählen in der Bierliga für dich. Rückverkauf mit 20 % Abschlag.${income ? ` Bisher verdient: <b>${eur(income)}</b>.` : ''}</div>
+    ${list.map(x => `<div class="row"><span class="ico">${x.icon}</span><span class="grow"><span class="row-label">${esc(x.name)}</span><div class="sub">${esc(x.text)} · ca. ${eur(x.profit)} Gewinn/Woche · ${f0.format(x.pts)} Ligapunkte</div></span>
+      ${x.owned ? `<button class="btn" data-action="sellBrew" data-name="${esc(x.name)}">Verkaufen · ${eur(Math.round(x.price * 0.8))}</button>`
+        : `<button class="btn primary" data-action="buyBrew" data-name="${esc(x.name)}" ${story && s.cash < x.price ? 'disabled' : ''}>${story ? eur(x.price) : 'Nehmen'}</button>`}</div>`).join('')}`);
+  return panel('🏭', 'Industrie & Übernahmen', 'Lohnbrauen und andere Brauereien kaufen', html);
+}
+
+function packRow(b) {
+  const bottles = Object.entries(g.BOTTLES).filter(([, x]) => (!x.tech || g.hasTech(s, x.tech)) && (!x.order || g.hasOrder(s, x.order)));
+  const notes = [...new Set([...g.presentation(s, b, 'hof').notes, ...g.presentation(s, b, 'gastro').notes])];
+  return `<div class="row-top inline pack-row"><span class="sub">Abfüllung:</span>
+    <select data-pack-bottle="${b.id}" aria-label="Flasche">${bottles.map(([id, x]) => opt(id, `${x.icon} ${x.name}${x.cost ? ` (+${f2.format(x.cost)} €/L)` : ''}`, (b.bottle || 'euro') === id)).join('')}</select>
+    <select data-pack-glass="${b.id}" aria-label="Glas">${Object.entries(g.GLASSES).map(([id, x]) => opt(id, `${x.icon} ${x.name}`, (b.glass || 'willi') === id)).join('')}</select></div>
+    ${notes.length ? `<div class="sub pack-notes">${notes.map(esc).join(' · ')}</div>` : ''}`;
+}
+const VIEWS = { brand: brandView, tech: techView, industry: industryView, marketing: marketingView, web: webView, quests: questsView, barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
   donate: donateView, league: leagueView, diary: diaryView, sudbuch: sudbuchView };
 
 // ---------- Events ----------
@@ -785,6 +878,7 @@ function editRecipe(t) {
   else if (t.id === 'bYeast') r.yeastId = v;
   else if (t.id === 'bMash') g.setMashProgram(r, v);
   else if (t.id === 'bReif') r.reifung = t.checked;
+  else if (t.id === 'bFilter') r.filter = v === '1';
   else if ('malt' in d) r.malts[+d.malt].id = v;
   else if ('share' in d) { if (ok(n)) r.malts[+d.share].share = Math.min(100, Math.max(0, n)); }
   else if ('hop' in d) r.hops[+d.hop].id = v;
@@ -840,6 +934,7 @@ export function initGameUi() {
     if (e.target.id === 'bName') { brewForm.recipe.name = e.target.value; return; }
     if (e.target.id === 'blendName') { blendForm.name = e.target.value; return; }
     if (e.target.id === 'sName') { styleForm.name = e.target.value; return; }
+    if (e.target.id === 'bText') { brandForm.text = e.target.value.toUpperCase().slice(0, 4); return; }
     if (e.target.id !== 'wikiQ') return;
     wiki.q = e.target.value; render();
     const i = $('wikiQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length);
@@ -855,6 +950,8 @@ export function initGameUi() {
     if ('srange' in td) { const x = parseFloat(t.value); if (Number.isFinite(x)) styleForm.ranges[td.srange][+td.pos] = x; render(); return; }
     if ('plan' in td) { act(() => g.setPlan(s, td.plan, t.checked)); return; }
     if ('sec' in td) { act(() => g.setSecurity(s, +td.sec)); return; }
+    if ('packBottle' in td) { act(() => g.setPackaging(s, +td.packBottle, { bottle: t.value })); return; }
+    if ('packGlass' in td) { act(() => g.setPackaging(s, +td.packGlass, { glass: t.value })); return; }
     if ('sellrule' in td) { act(() => g.setSellRule(s, td.sellrule, t.value)); return; }
     if (t.id === 'sLevel') act(() => g.setSandboxLevel(s, +t.value));
   });
@@ -869,6 +966,8 @@ export function initGameUi() {
     }
     const pick = e.target.closest('[data-style-pick]');
     if (pick) { brewForm.recipe = freshRecipe(pick.dataset.stylePick); render(); return; }
+    const bsel = e.target.closest('[data-bsym],[data-bcol],[data-bshape]');
+    if (bsel) { const d = bsel.dataset; if (d.bsym) brandForm.symbol = d.bsym; if (d.bcol) brandForm.color = d.bcol; if (d.bshape) brandForm.shape = d.bshape; render(); return; }
     const cpick = e.target.closest('[data-custom-pick]');
     if (cpick) { const cs = g.customOf(s, cpick.dataset.customPick); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, mashProgram: null, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); render(); } return; }
     const load = e.target.closest('[data-load-recipe]');
@@ -893,6 +992,12 @@ export function initGameUi() {
       case 'delStyle': if (confirm('Diesen Stil löschen? Gespeicherte Rezepte und Bier im Lager bleiben erhalten.')) act(() => g.deleteStyle(s, d.id)); break;
       case 'brewCustom': { const cs = g.customOf(s, d.id); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); go('brew'); } break; }
       case 'hireHelper': act(() => g.hireHelper(s)); break;
+      case 'saveBrand': act(() => { g.setBrand(s, brandForm); toast('🎨 Dein Logo ist fertig!', 'good'); }); break;
+      case 'order': act(() => g.placeOrder(s, d.id)); break;
+      case 'tech': act(() => g.buyTech(s, d.id)); break;
+      case 'contract': act(() => g.contractBrew(s, $('ctRecipe').value, Math.round(num('ctL')))); break;
+      case 'buyBrew': if (confirm(`„${d.name}“ übernehmen?`)) act(() => g.buyBrewery(s, d.name)); break;
+      case 'sellBrew': if (confirm(`„${d.name}“ wieder verkaufen?`)) act(() => g.sellBrewery(s, d.name)); break;
       case 'sample': act(() => { g.sendSample(s, d.rv, +$('rv-' + d.rv).value); toast('📦 Unterwegs! Die Kritik kommt in 4–12 Tagen.', 'good'); }); break;
       case 'tasting': act(() => { const r = g.hostTasting(s, +$('tastingBeer').value, d.size); toast(`🍻 Verkostung vorbei: Ruf ${r.rep >= 0 ? '+' : ''}${f1.format(r.rep)}${r.regulars ? `, ${r.regulars} neue Stammkunden` : ''}.`, r.rep >= 0 ? 'good' : 'bad'); }); break;
       case 'web': if (!s.web || confirm('Die alte Seite wird ersetzt. Weiter?')) act(() => g.buildWebsite(s, d.kind)); break;

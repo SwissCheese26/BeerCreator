@@ -60,7 +60,7 @@
       <div class="g-row">
         <button class="g-btn" id="gBack" title="Zum Hauptmenü">☰ Menü</button>
         <button class="g-btn" id="gHome" title="Zur Brauerei-Übersicht">🏠 Übersicht</button>
-        <div class="g-brand"><img src="../icon.png" alt=""><div><b id="gName"></b><small id="gChapter"></small></div></div>
+        <div class="g-brand"><span id="gLogo" class="g-logo"><img src="../icon.png" alt=""></span><div><b id="gName"></b><small id="gChapter"></small></div></div>
         <div class="g-wait" id="gWait">
           <button class="g-btn" data-wait="1">⏩ 1 Tag</button>
           <button class="g-btn" data-wait="7">⏩ 1 Woche</button>
@@ -80,8 +80,9 @@
     <form class="modal-box" id="nameForm">
       <div class="unlock-big">🏷️</div>
       <h2 class="modal-title center">Wie soll deine Brauerei heißen?</h2>
-      <p class="modal-text center">Den Namen kannst du dir selbst ausdenken. Ein eigenes Logo kommt später.</p>
+      <p class="modal-text center">Den Namen kannst du dir selbst ausdenken. Ein eigenes Logo kommt später. Und: Wo fängst du an?</p>
       <input class="search name-input" id="nameInput" maxlength="40" required minlength="2" value="Heinrichs Hausbrauerei" aria-label="Name der Brauerei">
+      <div id="locPick" class="loc-pick" role="radiogroup" aria-label="Wo fängst du an?"></div>
       <div class="btn-row center"><button type="button" class="btn" id="nameCancel">Abbrechen</button><button class="btn primary big" type="submit">🍺 Los geht's</button></div>
     </form>
   </div>

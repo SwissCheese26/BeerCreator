@@ -81,5 +81,6 @@ export const customPriceFactor = cs => (cs ? 0.85 + clamp(cs.fame, 0, 100) / 100
 export function addFame(s, beer, liters) {
   const cs = beer.custom && customOf(s, beer.custom.id);
   if (!cs) return;
-  cs.fame = round2(clamp(cs.fame + liters / 20 * (beer.quality - 60) / 20, 0, 100));
+  const gain = liters / 20 * (beer.quality - 60) / 20;
+  cs.fame = round2(clamp(cs.fame + gain * (gain > 0 && s.location === 'lindenberg' ? 1.5 : 1), 0, 100));
 }

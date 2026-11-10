@@ -28,14 +28,16 @@ const MEDAL_PTS = { Gold: 400, Silber: 250, Bronze: 150 };
 /** Punkte der eigenen Brauerei: Ruf, Ansehen, Medaillen, Absatz. */
 export function playerPoints(s) {
   const medals = (s.stats.medals || []).reduce((a, m) => a + (MEDAL_PTS[m.medal] || 0), 0);
-  return Math.round(s.reputation * 20 + (s.honor || 0) * 10 + medals + s.stats.soldL * 0.5 + s.stats.givenL * 0.3 + s.stats.bestQuality);
+  const owned = (s.owned || []).reduce((a, n) => a + (COMPETITORS.find(c => c.name === n)?.pts || 0), 0); // übernommene Brauereien zählen mit
+  return Math.round(s.reputation * 20 + (s.honor || 0) * 10 + medals + s.stats.soldL * 0.5 + s.stats.givenL * 0.3 + s.stats.bestQuality + owned);
 }
 
 /** Konkurrenten wachsen über die Jahre langsam mit (große schneller). */
 const compPoints = (c, day) => Math.round(c.pts * (1 + Math.max(0, day - START_DAY) / 365 * 0.04));
 
 export function ranking(s) {
-  const list = COMPETITORS.map(c => ({ name: c.name, icon: c.icon, text: c.text, points: compPoints(c, s.day), me: false }));
+  const owned = s.owned || [];
+  const list = COMPETITORS.filter(c => !owned.includes(c.name)).map(c => ({ name: c.name, icon: c.icon, text: c.text, points: compPoints(c, s.day), me: false }));
   list.push({ name: s.breweryName, icon: '⭐', text: 'Das bist du!', points: playerPoints(s), me: true });
   list.sort((a, b) => b.points - a.points || (a.me ? 1 : -1));
   return { list, myRank: list.findIndex(x => x.me) + 1 };

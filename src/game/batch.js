@@ -8,6 +8,7 @@ import { need, rand, log, clamp, round2, spend } from './state.js';
 import { recipePotential, aromaPoints, reifungOf, optionCost } from './recipe.js';
 import { styleView } from './styles.js';
 import { BUNT_STYLES } from './config.js';
+import { runCostFor, hasTech, techBonuses } from './business.js';
 
 /** Laufende Kosten eines Suds, die beim Ansetzen bezahlt werden: Energie/Wasser und Flaschen/Kronkorken/Etiketten. */
 export const runCost = liters => round2(liters * (ENERGY_PER_L + PACKAGING_PER_L));
@@ -75,12 +76,12 @@ function execution(s, recipe, pv, { fixedTemp = null, rnd = null } = {}) {
   const fermTemp = fixedTemp ?? (control === 0 ? ambient : control === 1 ? mid + (rnd ? rnd() * 3 - 1.5 : 0) : mid);
   const dev = Math.max(0, yeast.tMin - fermTemp, fermTemp - yeast.tMax);
   const temp = 20 * Math.max(0, 1 - dev / 6);
-  const pitch = 10 * clamp((pv.pitchRatio - 0.4) / 0.6, 0, 1);
+  const pitch = hasTech(s, 'hefelabor') ? 10 : 10 * clamp((pv.pitchRatio - 0.4) / 0.6, 0, 1);
   const lvl = skillLevel(s);
   const complexity = Math.max(0, meta.difficulty - lvl * 0.8) * 3;
   const tries = s.stats.styleCount?.[recipe.styleId] || 0;
   const practice = Math.max(0, 3 - tries) * meta.difficulty * 1.5 * Math.max(0.3, 1 - 0.1 * lvl);
-  const swingAmp = Math.max(0, 10 - lvl * 1.2);
+  const swingAmp = Math.max(0, 10 - lvl * 1.2) * (hasTech(s, 'sensorik') ? 0.5 : 1);
   return { yeast, readyIn, fermTemp, dev, temp, pitch, lvl, complexity, tries, practice, swingAmp, meta };
 }
 
@@ -94,9 +95,10 @@ export function forecast(s, recipe) {
     pts: 20 - ex.temp + (ex.fermTemp > ex.yeast.tMax + 2 ? 10 : ex.fermTemp < ex.yeast.tMin - 2 ? 8 : 0) });
   if (ex.pitch < 9.5) ded.push({ label: 'Zu wenig Hefe', pts: 10 - ex.pitch });
   if (ex.complexity + ex.practice > 0.5) ded.push({ label: ex.tries === 0 ? 'Erster Sud dieses Stils / Erfahrung' : 'Übung und Erfahrung', pts: ex.complexity + ex.practice });
-  const sure = pot.total - ded.reduce((a, d) => a + d.pts, 0);
+  const bonus = techBonuses(s, recipe);
+  const sure = pot.total - ded.reduce((a, d) => a + d.pts, 0) + bonus.reduce((a, b) => a + b.pts, 0);
   const infection = Math.pow(1 - hygieneOf(s, true), 2) * 0.6;
-  return { potential: pot, deductions: ded.map(d => ({ ...d, pts: round2(d.pts) })),
+  return { potential: pot, deductions: ded.map(d => ({ ...d, pts: round2(d.pts) })), bonuses: bonus,
     low: Math.round(clamp(sure - ex.swingAmp, 0, 100)), high: Math.round(clamp(sure + ex.swingAmp, 0, 100)),
     infection, readyIn: ex.readyIn, preview: pv };
 }
@@ -111,10 +113,11 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   need(s.batches.filter(b => b.status === 'gaerend').length < slotsOf(s), 'Alle Gärplätze sind belegt – warte auf einen fertigen Sud oder kaufe einen größeren Gärtank.');
   const pv = previewBatch(s, recipe);
   need(pv.calc.grainKg > 0, 'Ohne Malz kein Bier – füge mindestens ein Malz hinzu.');
+  need(!recipe.filter || hasTech(s, 'filter'), 'Zum Filtrieren brauchst du einen Plattenfilter (Technik).');
   need(pv.missing.length === 0, `Es fehlt: ${pv.missing.join(', ')}.`);
 
   const sandbox = s.mode === 'sandbox';
-  const running = round2(runCost(recipe.batchL) + optionCost(recipe));
+  const running = round2(runCostFor(s, recipe.batchL) + optionCost(recipe));
   need(sandbox || s.cash >= running - 1e-9, `Für Energie, Wasser und Flaschen fehlen dir ${round2(running - s.cash)} € (${running} € nötig).`);
   if (!sandbox) { // Verbrauch
     spend(s, running, 'Energie und Flaschen');
@@ -166,6 +169,9 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   extra += swing - complexity - practice;
   (s.stats.styleCount ||= {})[recipe.styleId] = tries + 1;
 
+  const tq = techBonuses(s, recipe);
+  tq.forEach(t => { if (t.pts < 0) notes.push(t.label + '.'); });
+  extra += tq.reduce((a, t) => a + t.pts, 0);
   let quality = Math.round(clamp(pot.total - (20 - ex.temp) - (10 - ex.pitch) + pts.hygiene + extra, 0, 100));
   if (tutorial) quality = Math.round(clamp(quality, 55, 72)); // Das erste, geführte Bier gelingt ordentlich – mit Luft nach oben
 
@@ -173,15 +179,15 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   const maltCost = c.malts.reduce((a, m) => a + MALT_PRICE[m.id] * m.kg, 0);
   const hopCost = c.hops.reduce((a, h) => a + hopPrice(s, h.id, h.form) * h.g, 0);
   const yeastCost = Math.min(pv.packsNeeded, pv.packsHave) * YEAST_PRICE[recipe.yeastId];
-  const energyCost = ENERGY_PER_L * recipe.batchL + (sanitized ? SANITIZER_PRICE : 0) + optionCost(recipe);
-  const packCost = PACKAGING_PER_L * recipe.batchL;
+  const energyCost = ENERGY_PER_L * recipe.batchL * (hasTech(s, 'waerme') ? 0.6 : 1) + (sanitized ? SANITIZER_PRICE : 0) + optionCost(recipe);
+  const packCost = PACKAGING_PER_L * recipe.batchL * (hasTech(s, 'abfueller') ? 0.6 : 1);
   const cost = { malt: round2(maltCost), hops: round2(hopCost), yeast: round2(yeastCost), energy: round2(energyCost), packaging: round2(packCost),
     total: round2(maltCost + hopCost + yeastCost + energyCost + packCost) };
   const batch = {
     id: s.nextId++, name: name || recipe.name, styleId: recipe.styleId, status: 'gaerend',
     custom: recipe.custom ? { id: recipe.custom.id, name: recipe.custom.name } : undefined,
     bunt: BUNT_STYLES.includes(recipe.styleId) || !!recipe.custom?.bunt, startDay: s.day, readyDay: s.day + readyIn,
-    liters: round2(recipe.batchL * BOTTLING_LOSS), quality, potential: pot.total, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
+    liters: round2(recipe.batchL * BOTTLING_LOSS * (recipe.filter && !hasTech(s, 'zentrifuge') ? 0.96 : 1)), quality, filtered: !!recipe.filter, potential: pot.total, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
     calc: { plato: c.plato, abv: c.abv, ibu: c.ibu, ebc: c.ebc, fgP: c.fgP },
     cost, costPerLiter: round2(cost.total / (recipe.batchL * BOTTLING_LOSS)), tutorial,
   };

@@ -23,7 +23,7 @@ function check(s, where) {
 
 export function fuzz(mode, seed, steps) {
   const r = rng(seed), pick = a => a[Math.floor(r() * a.length)];
-  const s = g.newGame({ mode, seed });
+  const s = g.newGame({ mode, seed, location: pick(Object.keys(g.LOCATIONS)) });
   if (mode === 'story') playTutorial(s);
   const beer = () => s.beers.length ? pick(s.beers).id : 1;
   const L = () => pick([0.5, 1, 5, 10, 30, 200, -3, 0]);
@@ -49,10 +49,22 @@ export function fuzz(mode, seed, steps) {
     () => g.setSecurity(s, pick([0, 1, 2, 3, 7])),
     () => { const q = g.questsOf(s); const o = q.offered[0]; if (o) (r() < 0.7 ? g.acceptQuest : g.declineQuest)(s, o.id); },
     () => { const a = g.questsOf(s).active[0]; if (a) g.deliverQuest(s, a.id, beer()); },
+    () => g.buyTech(s, pick(Object.keys(g.TECH))),
+    () => g.setBrand(s, { symbol: pick(g.BRAND_SYMBOLS), color: pick(g.BRAND_COLORS), shape: pick(Object.keys(g.BRAND_SHAPES)), text: pick(['', 'ab', 'HHBXX']) }),
+    () => g.placeOrder(s, pick(Object.keys(g.ORDERS))),
+    () => g.setPackaging(s, beer(), { bottle: pick(Object.keys(g.BOTTLES)), glass: pick(Object.keys(g.GLASSES)) }),
+    () => { const rc = newRecipeFromStyle(pick(['pils', 'weizen', 'helles'])); rc.filter = r() < 0.5; if (s.mode !== 'sandbox') g.buyForRecipe(s, rc); g.startBatch(s, rc); },
+    () => s.recipes.length && g.contractBrew(s, pick(s.recipes).name, pick([100, 500, 2000, 9000])),
+    () => g.buyBrewery(s, pick(g.forSale(s)).name),
+    () => s.owned.length && g.sellBrewery(s, pick(s.owned)),
   ];
   let errors = 0;
   for (let i = 0; i < steps; i++) {
-    if (s.event) { g.resolveEvent(s, pick(s.event.choices).id); continue; }
+    if (s.event) {
+      const ok = g.EVENTS[s.event.id].choices.filter(c => !c.enabled || c.enabled(s));
+      assert.ok(ok.length, `Schritt ${i}: Ereignis „${s.event.id}“ hat keine wählbare Option – das Spiel wäre blockiert`);
+      g.resolveEvent(s, pick(ok).id); continue;
+    }
     try { pick(actions)(); } catch (e) {
       if (!(e instanceof g.GameError)) throw new Error(`Schritt ${i}: ${e.stack}`);
       errors++;

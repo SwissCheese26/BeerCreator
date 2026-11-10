@@ -3,6 +3,7 @@
 import { beerTax } from './config.js';
 import { need, log, rand, round2, clamp, spend, hasFeature } from './state.js';
 import { addFame, styleView } from './styles.js';
+import { presentationReview, hasOrder } from './business.js';
 
 // ---------- Kritiker ----------
 // reach: wie viele Leute zuhören (wirkt auf Ruf und Nachfrage). likes/hates: Stil-Vorlieben. harsh: zieht Punkte ab.
@@ -85,7 +86,8 @@ export function reviewScore(reviewerId, beer) {
 
 function writeReview(s, p) {
   const r = REVIEWERS[p.reviewer], b = p.beer;
-  const score = Math.round(clamp(reviewScore(p.reviewer, b) + (rand(s) - 0.5) * 12, 0, 100));
+  const look = presentationReview(s, b);
+  const score = Math.round(clamp(reviewScore(p.reviewer, b) + look + (rand(s) - 0.5) * 12, 0, 100));
   const stars = clamp(Math.round(score / 20 * 2) / 2, 0.5, 5);
   const style = styleView(b).name;
   const flaws = (b.flaws || []).map(f => FLAW_TXT[f]).filter(Boolean);
@@ -97,6 +99,8 @@ function writeReview(s, p) {
   if (r.hates.includes(b.styleId)) text += ' (Ehrlich gesagt: nicht ganz unser Stil.)';
   else if (r.likes.includes(b.styleId) && score >= 60) text += ' Genau unser Ding!';
   if (r.loveCraft && (b.custom || b.blend || b.barrel)) text += ' Mutig und eigenständig – das feiern wir.';
+  if (look >= 4) text += ' Und die Aufmachung: Flasche, Glas, Etikett – alles stimmig. Großes Kino.';
+  else if (look <= -2) text += ' Die Aufmachung passt leider gar nicht zum Bier.';
 
   // Wer dich schon kennt, bringt mit jeder weiteren Kritik weniger neue Leser zu dir
   const before = s.reviews.list.filter(x => x.reviewer === p.reviewer).length;
@@ -185,7 +189,7 @@ export function hostTasting(s, beerId, size) {
   s.stats.tastings = (s.stats.tastings || 0) + 1;
   marketOf(s);
   const q = b.quality - (b.flaws || []).length * 8;
-  const fresh = 1 / (1 + 0.2 * (s.stats.tastings - 1)); // dieselben Nachbarn kommen immer wieder
+  const fresh = 1 / (1 + 0.2 * (s.stats.tastings - 1)) * (hasOrder(s, 'logoglas') ? 1.2 : 1); // dieselben Nachbarn kommen immer wieder
   const rep = round2(clamp((q - 58) / 14 * Math.sqrt(t.guests / 10) * (q >= 58 ? fresh : 1), -5, 4));
   const regulars = q >= 60 ? Math.round(t.guests * (q - 50) / 100) : 0;
   if (s.mode === 'story') {

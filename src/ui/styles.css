@@ -492,3 +492,42 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 .stars.small { font-size: 14px; flex: none; }
 .review-text { font-style: italic; }
 .pad-row { padding: 8px 16px; }
+
+/* Schritt 4: Standort, Marke, Technik, Industrie */
+.g-logo { display: grid; place-items: center; width: 40px; height: 40px; flex: none; }
+.loc-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.loc-card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--card-2); cursor: pointer; border: 2px solid transparent; }
+.loc-card:has(input:checked) { border-color: var(--accent-fill); }
+.loc-card input { position: absolute; opacity: 0; pointer-events: none; }
+.loc-card:focus-within { outline: 2px solid var(--accent); }
+.loc-icon { font-size: 24px; }
+.loc-card small { color: var(--text-2); font-size: 11.5px; line-height: 1.35; }
+.loc-card .loc-kind { font-weight: 600; color: var(--text); }
+#nameModal .modal-box { max-width: 620px; max-height: 92vh; overflow: auto; }
+@media (max-width: 520px) { .loc-pick { grid-template-columns: 1fr; } }
+
+.logo-badge { --size: 64px; width: var(--size); height: var(--size); flex: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--logo); color: #fff; box-shadow: inset 0 0 0 calc(var(--size) * .05) rgba(255,255,255,.35); line-height: 1; }
+.logo-badge.kreis { border-radius: 50%; }
+.logo-badge.quadrat { border-radius: calc(var(--size) * .16); }
+.logo-badge.schild { border-radius: 12% 12% 50% 50% / 10% 10% 45% 45%; }
+.logo-badge.raute { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); box-shadow: none; }
+.logo-txt { font: 800 calc(var(--size) * .17) var(--font); letter-spacing: .06em; margin-top: calc(var(--size) * .03); }
+.brand-studio { display: grid; grid-template-columns: 260px 1fr; gap: 20px; background: var(--card); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 18px; }
+.brand-preview { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.label-mock { width: 100%; border-radius: 12px; padding: 12px; background: color-mix(in srgb, var(--logo) 14%, var(--card-2)); border: 2px solid var(--logo); text-align: center; }
+.label-top { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.label-mock small { color: var(--text-2); }
+.brand-tools h3 { margin: 10px 0 6px; font-size: 13px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+.sym-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.sym { all: unset; cursor: pointer; width: 38px; height: 38px; display: grid; place-items: center; font-size: 20px; border-radius: 10px; background: var(--card-2); }
+.sym.on, .swatch-btn.on { outline: 3px solid var(--accent-fill); outline-offset: 1px; }
+.sym:focus-visible, .swatch-btn:focus-visible { outline: 2px solid var(--accent); }
+.swatch-btn { all: unset; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; }
+.brand-tools .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+@media (max-width: 720px) { .brand-studio { grid-template-columns: 1fr; } }
+.pack-row { gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+.pack-row select { max-width: 100%; }
+.pack-notes { font-size: 12px; }
+.expect li.plus { color: var(--green, #2e8b57); }
+.donate-card.owned { outline: 2px solid var(--accent-fill); }

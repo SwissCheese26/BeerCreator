@@ -89,7 +89,7 @@ export const CHAPTERS = [
     id: 'keller',
     title: 'Kapitel 4 – Gerdas Keller',
     intro: 'Im Sommer ist die Garage eine Sauna, im Winter eine Gefriertruhe – deine Biere leiden. Zeit für Technik. Und Gerda hat da eine Idee.',
-    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse', 'fasskeller', 'webseite'); },
+    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse', 'fasskeller', 'webseite', 'marke'); },
     objectives: [
       { id: 'gear', text: 'Kaufe einen 50-L-Kessel und einen Gärkühlschrank.', done: s => tierAtLeast(s, 'kettle', 'kessel50') && tierAtLeast(s, 'cooling', 'kuehlschrank') },
       { id: 'styles3', text: 'Braue drei verschiedene Bierstile.', done: s => s.stats.styles.length >= 3 },
@@ -105,7 +105,7 @@ export const CHAPTERS = [
     id: 'wettbewerb',
     title: 'Kapitel 5 – Die Landesmeisterschaft',
     intro: 'Die Landesmeisterschaft der Heim- und Craftbrauer. Die Jury trinkt blind und gnadenlos. Ein Medaillenplatz würde dir Türen öffnen.',
-    onEnter: s => unlock(s, 'produktion', 'stilwerkstatt'),
+    onEnter: s => unlock(s, 'produktion', 'stilwerkstatt', 'technik'),
     objectives: [
       { id: 'medal', text: 'Gewinne eine Medaille.', done: s => s.stats.medals.length >= 1 },
     ],
@@ -115,6 +115,7 @@ export const CHAPTERS = [
   {
     id: 'brauerei',
     title: 'Kapitel 6 – Die eigene Brauerei',
+    onEnter: s => unlock(s, 'industrie'),
     intro: 'Ein Großhändler und ein Hopfenbauer buhlen um dich. Jede Entscheidung hat Folgen für Preis, Qualität und Ruf.',
     objectives: [
       { id: 'rep50', text: 'Erreiche 50 Ruf.', done: s => s.reputation >= 50 },
