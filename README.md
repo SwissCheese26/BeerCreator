@@ -58,3 +58,10 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - Gärtemperatur, Hefemenge, Hygiene und Erfahrung ziehen davon ab; die Vorschau zeigt die erwartete Qualität.
 - **Sortiment**: Rezepte mit eigenem Namen speichern und wieder laden.
 - Neuer Absatzweg **Getränkehändler holt ab**: nimmt jede Menge, zahlt aber wenig.
+
+## Schritt 2: Fasskeller, Cuvée, Stil-Labor, Produktion (0.2.0-beta)
+
+- **Fasskeller** (ab Kapitel 4): Bourbon-, Rotwein-, Whisky- und Cognacfass (30 L). Passendes, starkes Bier gewinnt bis ca. +14 Qualität (Höhepunkt nach 4–6 Monaten), leichtes Bier leidet; Engelsanteil, Abnutzung des Holzes, Risiko wilder Hefen. Fassbier verkauft sich deutlich teurer.
+- **Cuvée**: zwei Biere verschneiden; Fassbier + frisches Bier gibt einen Bonus, sehr verschiedene Biere beißen sich.
+- **Stil-Labor** (ab Kapitel 5, Level 3): eigene Bierstile mit eigenen Zielwerten auf Basis eines gelernten Stils. Bekanntheit wächst mit gut verkauftem Bier und hebt den Preis; weit vom Basis-Stil entfernte Stile gelten als „bunt“.
+- **Produktion** (ab Kapitel 5): Brauhelfer (150 € im Monat) braut Sortiments-Rezepte aus dem Produktionsplan reihum und verkauft nach Regeln (selbst / Markt / Markt + Händler).

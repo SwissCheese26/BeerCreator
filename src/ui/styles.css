@@ -473,3 +473,11 @@ button.chip:hover { background: var(--accent-soft); color: var(--accent); }
 .expect p { margin: 6px 0 0; }
 .actions.col { flex-direction: column; align-items: stretch; gap: 8px; margin-top: 14px; }
 .trick .grow { flex: 1; min-width: 0; }
+
+/* ---------- Fasskeller, Stil-Labor, Produktion ---------- */
+.group .donate-grid { padding: 12px; }
+.group .donate-card { background: var(--card-2); box-shadow: none; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; vertical-align: 2px; }
+.style-chip.custom { border-style: dashed; border-color: var(--accent-soft); }
+.style-chip.custom.on { border-style: solid; border-color: var(--accent-fill); }
+.row-top.inline { align-items: center; flex-wrap: wrap; }

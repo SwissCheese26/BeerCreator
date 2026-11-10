@@ -116,7 +116,8 @@ export function aromaPoints(r) {
  * Stiltreue 30 · Zutaten 20 · Aroma 10 · Feinschliff 40.
  */
 export function recipePotential(r) {
-  const style = byId(STYLES, r.styleId), fit = FIT[r.styleId];
+  const base = byId(STYLES, r.styleId), fit = FIT[r.styleId];
+  const style = r.custom ? { ...base, name: r.custom.name, ranges: r.custom.ranges } : base; // eigener Stil: eigene Zielwerte
   const c = compute(r);
   const parts = [], tricks = [];
 
@@ -131,7 +132,8 @@ export function recipePotential(r) {
   parts.push({ id: 'stil', label: 'Stiltreue', pts: st, max: 30, note: off.length ? off.join(', ') : 'alle Werte im Zielbereich' });
 
   // Zutaten (20): Hefe 8, Hopfen-Herkunft 7, Malzanteile 5
-  const yIdeal = fit.yeast.ideal.includes(r.yeastId), yOk = fit.yeast.ok?.includes(r.yeastId);
+  const yIdeal = r.custom ? r.yeastId === r.custom.yeastId : fit.yeast.ideal.includes(r.yeastId);
+  const yOk = !yIdeal && (fit.yeast.ideal.includes(r.yeastId) || fit.yeast.ok?.includes(r.yeastId));
   const yeastPts = yIdeal ? 8 : yOk ? 4 : 0;
   const hopG = r.hops.reduce((a, h) => a + h.gPerL, 0) || 1;
   const typical = r.hops.filter(h => fit.hops.includes(HOP_FAMILY[h.id]) || (h.id === 'magnum' && h.time >= 45)).reduce((a, h) => a + h.gPerL, 0);

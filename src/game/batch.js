@@ -6,6 +6,8 @@ import { STYLE_META, levelOf, isUnlocked } from './progress.js';
 import { hopKey, hopPrice, buyMalt, buyHop, buyYeast, buySanitizer } from './shop.js';
 import { need, rand, log, clamp, round2, spend } from './state.js';
 import { recipePotential, aromaPoints, reifungOf, optionCost } from './recipe.js';
+import { styleView } from './styles.js';
+import { BUNT_STYLES } from './config.js';
 
 /** Laufende Kosten eines Suds, die beim Ansetzen bezahlt werden: Energie/Wasser und Flaschen/Kronkorken/Etiketten. */
 export const runCost = liters => round2(liters * (ENERGY_PER_L + PACKAGING_PER_L));
@@ -124,7 +126,7 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   const sanitized = s.inventory.sanitizer > 0 || sandbox;
   if (sanitized && !sandbox) s.inventory.sanitizer--;
 
-  const style = byId(STYLES, recipe.styleId);
+  const style = styleView(recipe);
   const c = pv.calc;
   const flaws = [], notes = [];
   // Potenzial des Rezepts (mit der echten Frische der Lagerhopfen)
@@ -176,7 +178,9 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   const cost = { malt: round2(maltCost), hops: round2(hopCost), yeast: round2(yeastCost), energy: round2(energyCost), packaging: round2(packCost),
     total: round2(maltCost + hopCost + yeastCost + energyCost + packCost) };
   const batch = {
-    id: s.nextId++, name: name || recipe.name, styleId: recipe.styleId, status: 'gaerend', startDay: s.day, readyDay: s.day + readyIn,
+    id: s.nextId++, name: name || recipe.name, styleId: recipe.styleId, status: 'gaerend',
+    custom: recipe.custom ? { id: recipe.custom.id, name: recipe.custom.name } : undefined,
+    bunt: BUNT_STYLES.includes(recipe.styleId) || !!recipe.custom?.bunt, startDay: s.day, readyDay: s.day + readyIn,
     liters: round2(recipe.batchL * BOTTLING_LOSS), quality, potential: pot.total, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
     calc: { plato: c.plato, abv: c.abv, ibu: c.ibu, ebc: c.ebc, fgP: c.fgP },
     cost, costPerLiter: round2(cost.total / (recipe.batchL * BOTTLING_LOSS)), tutorial,

@@ -26,11 +26,14 @@ const TILES = [
   { id: 'league',  icon: '🏆', name: 'Bierliga',        feature: 'bierliga' },
   { id: 'gear',    icon: '🔧', name: 'Ausrüstung',      feature: 'ausruestung' },
   { id: 'courses', icon: '🎓', name: 'Kurse',           feature: 'kurse' },
+  { id: 'barrel',  icon: '🛢️', name: 'Fasskeller & Cuvée', feature: 'fasskeller' },
+  { id: 'styles',  icon: '🧪', name: 'Stil-Labor',      feature: 'stilwerkstatt' },
+  { id: 'production', icon: '⚙️', name: 'Produktion',   feature: 'produktion' },
   { id: 'diary',   icon: '📔', name: 'Tagebuch',        feature: 'tagebuch' },
   { id: 'sudbuch', icon: '📖', name: 'Sudbuch',         feature: 'sudbuch' },
 ];
 const LOCK_HINT = { brauen: 'Kapitel 1', einkauf: 'Kapitel 1', verschenken: 'Kapitel 2', bierliga: 'Kapitel 2', verkauf: 'Kapitel 3',
-  spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4' };
+  spenden: 'Kapitel 3', ausruestung: 'Kapitel 4', kurse: 'Kapitel 4', fasskeller: 'Kapitel 4', produktion: 'Kapitel 5', stilwerkstatt: 'Kapitel 5' };
 const GOAL_TILE = { brew2: 'brew', q50: 'brew', give20: 'cellar', rep8: 'cellar', sell50: 'cellar', gear: 'gear', styles3: 'brew', q65: 'brew',
   medal: 'cellar', rep50: 'cellar', cash4000: 'cellar' };
 const GOAL_HINT = {
@@ -54,7 +57,7 @@ const wiki = { kind: 'style', q: '' };
 const has = f => g.hasFeature(s, f);
 
 export function loadGame(mode) {
-  try { const x = JSON.parse(localStorage.getItem(KEY(mode))); return x && x.version >= 2 ? x : null; } catch { return null; }
+  try { const x = JSON.parse(localStorage.getItem(KEY(mode))); return x && x.version >= 2 ? g.migrate(x) : null; } catch { return null; }
 }
 function save() { try { localStorage.setItem(KEY(s.mode), JSON.stringify(s)); } catch {} }
 
@@ -167,6 +170,9 @@ function tileSub(t) {
     case 'courses': return `${s.unlocked.length} Stile gelernt`;
     case 'diary': return `${s.log.length} Einträge`;
     case 'sudbuch': return 'Anleitung & Wissen';
+    case 'barrel': { const full = (s.barrels || []).filter(b => b.fill).length; return s.barrels?.length ? `${full} von ${s.barrels.length} Fässern belegt` : 'Fassreifung, Cuvée'; }
+    case 'styles': return s.customStyles?.length ? `${s.customStyles.length} eigene Stile` : 'Eigene Biersorten';
+    case 'production': return s.auto?.helper ? `👷 läuft · ${s.auto.plan.length} Sorten im Plan` : 'Brauhelfer & Plan';
   }
   return '';
 }
@@ -256,7 +262,7 @@ function brewView() {
   }
   const fc = g.forecast(sim, r);
   const pot = fc.potential, c = fc.preview.calc;
-  const st = byId(STYLES, r.styleId), fit = g.styleFit(r.styleId);
+  const st = g.styleView(r), fit = g.styleFit(r.styleId);
   const run = sandbox ? 0 : g.runCost(r.batchL) + g.optionCost(r);
   const free = g.slotsOf(s) - s.batches.filter(b => b.status === 'gaerend').length;
   const reif = g.REIFUNG[fit.reif];
@@ -264,17 +270,21 @@ function brewView() {
 
   // Rezepte & Stile
   let html = recipes.length ? `<h2>📒 Dein Sortiment</h2><div class="style-picker">${recipes.map(x => {
-      const sx = byId(STYLES, x.styleId);
+      const sx = g.styleView(x);
       return `<span class="recipe-chip ${x.name === r.name && x.styleId === r.styleId ? 'on' : ''}"><button class="style-chip" data-load-recipe="${esc(x.name)}">
         <span class="dot" style="background:${ebcToHex((sx.ranges.ebc[0] + sx.ranges.ebc[1]) / 2)}"></span>${esc(x.name)}<small>${esc(sx.name)}</small></button>
         <button class="chip-x" data-action="delRecipe" data-name="${esc(x.name)}" title="Rezept löschen" aria-label="Rezept ${esc(x.name)} löschen">✕</button></span>`;
     }).join('')}</div>` : '';
-  html += `<h2>Neues Rezept aus Bierstil</h2><div class="style-picker">${avail.map(x => `<button class="style-chip ${x.id === r.styleId ? 'on' : ''}" data-style-pick="${x.id}">
+  html += `<h2>Neues Rezept aus Bierstil</h2><div class="style-picker">${avail.map(x => `<button class="style-chip ${x.id === r.styleId && !r.custom ? 'on' : ''}" data-style-pick="${x.id}">
       <span class="dot" style="background:${ebcToHex((x.ranges.ebc[0] + x.ranges.ebc[1]) / 2)}"></span>${esc(x.name)}</button>`).join('')}
-      ${has('kurse') ? '<button class="style-chip more" data-go="courses">🎓 mehr Stile …</button>' : ''}</div>`;
+      ${(s.customStyles || []).filter(cs => g.isUnlocked(s, cs.base)).map(cs => `<button class="style-chip custom ${r.custom?.id === cs.id ? 'on' : ''}" data-custom-pick="${cs.id}">
+      <span class="dot" style="background:${ebcToHex((cs.ranges.ebc[0] + cs.ranges.ebc[1]) / 2)}"></span>🧪 ${esc(cs.name)}</button>`).join('')}
+      ${has('kurse') ? '<button class="style-chip more" data-go="courses">🎓 mehr Stile …</button>' : ''}
+      ${has('stilwerkstatt') ? '<button class="style-chip more" data-go="styles">🧪 eigener Stil …</button>' : ''}</div>`;
 
   // Linke Spalte: Rezept bearbeiten
-  const yeastOpts = YEASTS.map(y => opt(y.id, `${y.name}${fit.yeast.ideal.includes(y.id) ? ' ★ typisch' : fit.yeast.ok?.includes(y.id) ? ' (geht)' : ''}`, y.id === r.yeastId)).join('');
+  const idealY = r.custom ? [r.custom.yeastId] : fit.yeast.ideal;
+  const yeastOpts = YEASTS.map(y => opt(y.id, `${y.name}${idealY.includes(y.id) ? ' ★ typisch' : fit.yeast.ok?.includes(y.id) ? ' (geht)' : ''}`, y.id === r.yeastId)).join('');
   let left = group('📝 Rezept', `
     <div class="row"><span class="grow row-label">Name<div class="sub">So heißt das Bier im Lager und beim Verkauf.</div></span>
       <input type="text" id="bName" class="text-input" maxlength="40" value="${esc(r.name)}" placeholder="z. B. Diplom Pils"></div>
@@ -358,7 +368,7 @@ function fermentView() {
       <div class="glassbar"><div style="width:${done / total * 100}%"></div></div><div class="sub">Gärtemperatur ${f1.format(b.fermTemp)} °C</div></div>`;
   }).join('') : empty('Gerade gärt nichts.'));
   const done = s.batches.filter(b => b.status === 'fertig').slice(-10).reverse();
-  html += group('Zuletzt fertig', done.length ? done.map(b => `<div class="row"><span class="grow">${esc(b.name)}<div class="sub">${esc(byId(STYLES, b.styleId)?.name)}${b.potential ? ` · Potenzial ${b.potential}` : ''} · ${eur(b.costPerLiter)}/L Kosten</div></span>
+  html += group('Zuletzt fertig', done.length ? done.map(b => `<div class="row"><span class="grow">${esc(b.name)}<div class="sub">${esc(b.custom?.name ?? byId(STYLES, b.styleId)?.name)}${b.potential ? ` · Potenzial ${b.potential}` : ''} · ${eur(b.costPerLiter)}/L Kosten</div></span>
     <span class="badge ${b.quality >= 70 ? 'ok' : b.quality >= 50 ? '' : 'low'}">${b.quality} · ${esc(g.qualityLabel(b.quality))}</span></div>`).join('') : empty('Noch nichts.'));
   return panel('🫧', 'Gärkeller', `${g.slotsOf(s)} Gärplätze`, html);
 }
@@ -448,7 +458,7 @@ function cellarView() {
   html += group('Fertiges Bier', beers.length ? beers.map(b => {
     const openCh = has('verkauf') ? chans.filter(([id]) => g.channelState(s, id).open) : [];
     return `<div class="row col-row beer-row">
-      <div class="row-top"><span class="row-label"><span class="swatch-inline" style="background:${ebcToHex(b.ebc)}"></span>${esc(b.name)}</span>
+      <div class="row-top"><span class="row-label"><span class="swatch-inline" style="background:${ebcToHex(b.ebc)}"></span>${esc(b.name)}${b.barrel && b.barrel !== 'cuvee' ? ' <span class="tag">🛢️ Fass</span>' : ''}${b.blend ? ' <span class="tag">🍷 Cuvée</span>' : ''}${b.custom ? ` <span class="tag">🧪 ${esc(b.custom.name)}</span>` : ''}</span>
         <span class="badge ${b.quality >= 70 ? 'ok' : b.quality >= 50 ? '' : 'low'}">Qualität ${b.quality} · ${esc(g.qualityLabel(b.quality))}</span></div>
       <div class="sub">${f2.format(b.liters)} L · ${f1.format(b.abv)} % vol · ${f0.format(b.ibu)} IBU · ${f0.format(b.ebc)} EBC</div>
       <div class="row-top inline">
@@ -513,6 +523,9 @@ const GUIDE = [
   ['🫧', 'Gären', 'Je nach Hefe 2–4 Wochen. Die Temperatur ist entscheidend: Ohne Kühlung ist die Garage im Sommer zu warm und im Winter zu kalt.'],
   ['⏩', 'Zeit', 'Mit den Knöpfen oben spulst du Tage vor. Bei wichtigen Ereignissen hält die Zeit an und du entscheidest.'],
   ['📦', 'Lager & Verkauf', 'Fertiges Bier verschenkst du (Ruf) oder verkaufst es über Absatzwege. Ohne Gewerbe ist Verkaufen verboten – oder riskant.'],
+  ['🛢️', 'Fasskeller & Cuvée', 'Starkes, dunkles Bier reift im Bourbon-, Whisky-, Rotwein- oder Cognacfass zu einem teuren Schatz – am besten 4–6 Monate. Oder verschneide zwei Biere zu einer eigenen Cuvée.'],
+  ['🧪', 'Stil-Labor', 'Erfinde eigene Biersorten mit eigenen Zielwerten. Anfangs kennt sie niemand – gutes, verkauftes Bier macht sie bekannt und teurer.'],
+  ['⚙️', 'Produktion', 'Ein Brauhelfer braut die Rezepte aus deinem Plan automatisch, sobald ein Tank frei ist, und verkauft nach deinen Regeln. Kostet Lohn.'],
   ['⭐', 'Ruf', 'Wie beliebt dein Bier ist. Wächst durch Qualität, Medaillen und Spenden – nicht durch Masse.'],
   ['🙏', 'Ansehen', 'Wie sehr man dir vertraut: Spenden und stabil gutes, klassisches Bier. Wer weiß, wer darauf aufmerksam wird …'],
   ['🎓', 'Level & Kurse', 'Jeder fertige Sud gibt Erfahrung. Höhere Level schalten Kurse für schwierigere Stile frei.'],
@@ -531,7 +544,119 @@ function sudbuchView() {
   return panel('📖', 'Opas Sudbuch', 'Anleitung und Wissen', html);
 }
 
-const VIEWS = { home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
+// ---------- Fasskeller & Cuvée ----------
+const blendForm = { a: null, la: 10, b: null, lb: 10, name: '' };
+function barrelView() {
+  const beers = s.beers.filter(b => b.liters >= 1);
+  const barrels = s.barrels || [];
+  let html = group('🛢️ Deine Fässer', barrels.length ? barrels.map(br => {
+    const def = g.BARRELS[br.type], st = g.barrelStatus(s, br);
+    const wear = br.uses ? ` · ${br.uses}× benutzt${br.uses >= 3 ? ' (fast ausgelaugt)' : ''}` : ' · neu';
+    if (st) {
+      const f = br.fill;
+      const mood = st.over ? '⚠️ zu lange – das Holz wird kratzig' : st.peak ? '⭐ Höhepunkt – jetzt abfüllen!' : st.ready ? 'kann abgefüllt werden, wird aber noch besser' : `noch ${g.BARREL_MIN_DAYS - st.days} Tage bis zum Abfüllen`;
+      return `<div class="row col-row"><div class="row-top"><span class="row-label">${def.icon} ${esc(def.name)}<span class="sub">${wear}</span></span>
+          <span class="badge ${st.gain > 0 ? 'ok' : 'low'}">${st.gain >= 0 ? '+' : ''}${f1.format(st.gain)} Qualität</span></div>
+        <div class="sub">„${esc(f.beer.name)}“ · ${f1.format(f.liters)} L · seit ${st.days} Tagen · ${mood}${!st.fits && st.gain <= 0 ? ' · passt nicht zu diesem Fass' : ''}</div>
+        <div class="glassbar"><div style="width:${Math.min(100, st.days / 2)}%"></div></div>
+        <div class="row-top inline"><span class="sub">${esc(def.aroma)}</span>
+          <button class="btn primary" data-action="emptyBarrel" data-id="${br.id}" ${st.ready ? '' : 'disabled'}>🍾 Abfüllen</button></div></div>`;
+    }
+    const cand = beers.filter(b => !b.barrel);
+    return `<div class="row col-row"><div class="row-top"><span class="row-label">${def.icon} ${esc(def.name)}<span class="sub">${wear} · leer</span></span></div>
+      <div class="sub">${esc(def.aroma)} · passt zu: ${def.suits.map(id => esc(byId(STYLES, id).name)).join(', ')}</div>
+      ${cand.length ? `<div class="row-top inline"><select id="bf-beer-${br.id}" class="grow">${cand.map(b => opt(b.id, `${b.name} · Q ${b.quality} · ${f1.format(b.liters)} L`)).join('')}</select>
+        <label class="sub"><input type="number" id="bf-l-${br.id}" min="5" max="${g.BARREL_L}" step="1" value="${Math.min(g.BARREL_L, Math.floor(cand[0].liters))}"> L</label>
+        <button class="btn primary" data-action="fillBarrel" data-id="${br.id}">Einlagern</button></div>` : '<div class="sub">Kein passendes Bier im Lager.</div>'}</div>`;
+  }).join('') : empty('Noch kein Fass. Starke, dunkle Biere (Imperial Stout, Doppelbock, Dubbel …) werden im Holz zu Schätzen.'));
+  html += group('🛒 Fass kaufen', `<div class="donate-grid">${Object.entries(g.BARRELS).map(([id, d]) => `<div class="donate-card"><span class="tile-icon">${d.icon}</span>
+    <b>${esc(d.name)}</b><small>${esc(d.aroma)}</small><small>Passt zu: ${d.suits.map(x => esc(byId(STYLES, x).name)).join(', ')}</small>
+    <div class="btn-row"><button class="btn" data-action="buyBarrel" data-type="${id}">${s.mode === 'sandbox' ? 'Nehmen' : eur(d.cost)}</button></div></div>`).join('')}</div>
+    <div class="row sub">Ein Fass fasst ${g.BARREL_L} L. Ab ${g.BARREL_MIN_DAYS} Tagen abfüllbar, am besten nach 4–6 Monaten. Pro Monat verdunsten ca. 2 % („Engelsanteil“). Jede Füllung laugt das Holz weiter aus.</div>`);
+
+  // Cuvée
+  if (beers.length >= 2) {
+    if (!beers.some(b => b.id === blendForm.a)) blendForm.a = beers[0].id;
+    if (!beers.some(b => b.id === blendForm.b) || blendForm.b === blendForm.a) blendForm.b = beers.find(b => b.id !== blendForm.a).id;
+    let pv = null, err = '';
+    try { pv = g.blendPreview(s, [{ beerId: blendForm.a, liters: blendForm.la }, { beerId: blendForm.b, liters: blendForm.lb }]); } catch (e) { err = e.message; }
+    const sel = (key, lkey) => `<div class="row ing-row"><select data-blend="${key}" class="grow">${beers.map(b => opt(b.id, `${b.name} · Q ${b.quality} · ${f1.format(b.liters)} L`, b.id === blendForm[key])).join('')}</select>
+      <label class="sub"><input type="number" data-blendl="${lkey}" min="1" step="1" value="${blendForm[lkey]}"> L</label></div>`;
+    html += group('🍷 Cuvée mischen', `${sel('a', 'la')}${sel('b', 'lb')}
+      <div class="row"><span class="grow row-label">Name der Cuvée</span><input type="text" id="blendName" class="text-input" maxlength="60" value="${esc(blendForm.name)}" placeholder="z. B. Cuvée Nachtschatten"></div>
+      ${pv ? `<div class="kv-grid"><div><small>Menge</small><b>${f1.format(pv.liters)} L</b></div><div><small>Qualität</small><b>${pv.quality}</b></div>
+        <div><small>Alkohol</small><b>${f1.format(pv.abv)} %</b></div><div><small>Bittere</small><b>${f0.format(pv.ibu)} IBU</b></div>
+        <div><small>Farbe</small><b><span class="swatch-inline" style="background:${ebcToHex(pv.ebc)}"></span>${f0.format(pv.ebc)} EBC</b></div></div>
+        ${pv.notes.map(n => `<div class="row sub">${esc(n)}</div>`).join('')}` : `<div class="row warn-text">${esc(err)}</div>`}
+      <div class="row"><span class="grow sub">Fassbier + frisches Bier ergibt eine klassische Cuvée. Sehr verschiedene Farben oder Bitterkeit beißen sich.</span>
+        <button class="btn primary" data-action="blend" ${pv ? '' : 'disabled'}>🍷 Verschneiden</button></div>`);
+  } else html += group('🍷 Cuvée mischen', empty('Für eine Cuvée brauchst du mindestens zwei Biere im Lager.'));
+  return panel('🛢️', 'Fasskeller & Cuvée', 'Bier im Holzfass reifen lassen und Biere zu eigenen Cuvées verschneiden', html);
+}
+
+// ---------- Stil-Labor ----------
+const styleForm = { name: '', base: null, yeastId: null, ranges: null };
+function stylesView() {
+  const avail = STYLES.filter(x => g.isUnlocked(s, x.id));
+  if (!styleForm.base || !g.isUnlocked(s, styleForm.base)) setStyleBase(avail[0].id);
+  const base = byId(STYLES, styleForm.base);
+  const lvl = g.skillLevel(s), story = s.mode === 'story';
+  const locked = story && lvl < g.CUSTOM_STYLE_LEVEL;
+  const bunt = g.isExperimental(styleForm.base, styleForm.ranges);
+  const rangeRow = k => {
+    const [label, unit] = g.RANGE_KEYS[k], [lo, hi] = styleForm.ranges[k];
+    const step = k === 'plato' || k === 'abv' ? 0.1 : 1;
+    return `<div class="row"><span class="grow row-label">${label}<div class="sub">${esc(base.name)}: ${base.ranges[k].join('–')} ${unit}</div></span>
+      <label class="sub"><input type="number" data-srange="${k}" data-pos="0" step="${step}" value="${lo}"> –</label>
+      <label class="sub"><input type="number" data-srange="${k}" data-pos="1" step="${step}" value="${hi}"> ${unit}</label></div>`;
+  };
+  let html = `<p class="sub pad">Erfinde deine eigene Biersorte: Du legst Namen und Zielwerte fest, der Basis-Stil gibt die Braulogik vor (passender Hopfen, Maischverfahren, Reifung). Neue Stile kennt anfangs niemand – erst mit gutem, verkauftem Bier werden sie bekannt und teurer.</p>`;
+  html += group('🧪 Neuer Stil', `
+    <div class="row"><span class="grow row-label">Name</span><input type="text" id="sName" class="text-input" maxlength="40" value="${esc(styleForm.name)}" placeholder="z. B. Garagengold Kellerbier"></div>
+    <div class="row"><span class="grow row-label">Basis-Stil<div class="sub">${esc(base.desc)}</div></span><select id="sBase">${avail.map(x => opt(x.id, x.name, x.id === styleForm.base)).join('')}</select></div>
+    <div class="row"><span class="grow row-label">Hefe</span><select id="sYeast">${YEASTS.map(y => opt(y.id, y.name, y.id === styleForm.yeastId)).join('')}</select></div>
+    ${Object.keys(g.RANGE_KEYS).map(rangeRow).join('')}
+    ${bunt ? '<div class="row warn-text">🌈 Weit weg vom Basis-Stil: Das gilt als experimentell („bunt“) – spannend, aber die Abtei mag so etwas nicht.</div>' : ''}
+    <div class="row"><span class="grow sub">${locked ? `🔒 Ab Level ${g.CUSTOM_STYLE_LEVEL} (du bist Level ${lvl}).` : story ? `Entwicklung (Probesude, Verkostung): ${eur(g.CUSTOM_STYLE_COST)}` : 'Sandbox: gratis'}</span>
+      <button class="btn primary" data-action="createStyle" ${locked ? 'disabled' : ''}>🧪 Stil anlegen</button></div>`);
+  const mine = s.customStyles || [];
+  html += group('📒 Deine Stile', mine.length ? mine.map(cs => `<div class="row col-row"><div class="row-top"><span class="row-label">🧪 ${esc(cs.name)}${cs.bunt ? ' 🌈' : ''}
+      <span class="sub">auf Basis ${esc(byId(STYLES, cs.base).name)} · ${esc(byId(YEASTS, cs.yeastId).name)}</span></span>
+      <span class="btn-row"><button class="btn primary" data-action="brewCustom" data-id="${cs.id}">🍺 Rezept anlegen</button>
+      <button class="icon-btn" data-action="delStyle" data-id="${cs.id}" title="Stil löschen" aria-label="Stil ${esc(cs.name)} löschen">✕</button></span></div>
+    <div class="sub">${Object.entries(g.RANGE_KEYS).map(([k, [l, u]]) => `${l} ${cs.ranges[k].join('–')} ${u}`).join(' · ')}</div>
+    <div class="row-top inline"><span class="sub">Bekanntheit ${f0.format(cs.fame)} / 100 · Preis ×${f2.format(g.customPriceFactor(cs))}</span></div>
+    <div class="glassbar"><div style="width:${cs.fame}%"></div></div></div>`).join('') : empty('Noch keine eigenen Stile.'));
+  return panel('🧪', 'Stil-Labor', 'Eigene Biersorten erfinden', html);
+}
+function setStyleBase(id) {
+  const b = byId(STYLES, id);
+  styleForm.base = id; styleForm.yeastId = b.start.yeast; styleForm.ranges = structuredClone(b.ranges);
+}
+
+// ---------- Produktion ----------
+function productionView() {
+  const a = g.autoOf(s), story = s.mode === 'story';
+  const recipes = s.recipes || [];
+  const free = g.slotsOf(s) - s.batches.filter(b => b.status === 'gaerend').length;
+  let html = `<div class="license-card"><span class="channel-icon">👷</span><div class="grow">
+      <b>${a.helper ? (story ? 'Dein Brauhelfer arbeitet' : 'Automatik läuft') : (story ? `Brauhelfer einstellen · ${eur(g.HELPER_WAGE)} im Monat` : 'Automatik einschalten')}</b>
+      <small>${a.helper ? `Er setzt die Rezepte aus dem Plan reihum an, sobald ein Gärtank frei wird (gerade ${Math.max(0, free)} frei), und verkauft nach deinen Regeln – nie unter der Hand.`
+        : 'Ein Helfer braut deine Sortiments-Rezepte automatisch, sobald ein Tank frei ist, und verkauft fertiges Bier nach deinen Regeln. Fehlende Zutaten kauft er selbst.'}</small></div>
+      <button class="btn ${a.helper ? '' : 'primary'}" data-action="${a.helper ? 'fireHelper' : 'hireHelper'}">${a.helper ? (story ? 'Entlassen' : 'Ausschalten') : (story ? 'Einstellen' : 'Einschalten')}</button></div>`;
+  html += group('📋 Produktionsplan', recipes.length ? recipes.map(r => {
+    const on = a.plan.includes(r.name), pot = g.recipePotential(r).total, sv = g.styleView(r);
+    return `<label class="row check-row"><input type="checkbox" data-plan="${esc(r.name)}" ${on ? 'checked' : ''}>
+      <span class="grow"><span class="row-label">${esc(r.name)}</span><div class="sub">${esc(sv.name)} · ${r.batchL} L · Potenzial ${pot}</div></span>
+      <select data-sellrule="${esc(r.name)}" title="Verkaufsregel">${Object.entries(g.SELL_RULES).map(([id, t]) => opt(id, t, (a.sell[r.name] || 'selbst') === id)).join('')}</select></label>`;
+  }).join('') : empty('Noch keine Rezepte im Sortiment. Unter „Brauen“ ein Rezept bauen und „Rezept ins Sortiment“ drücken.'));
+  html += `<p class="sub pad">✔ = wird gebraut (reihum). Die Verkaufsregel gilt für Bier mit genau diesem Namen. „Markt + Rest an den Händler“ macht das Lager jede Woche leer – wenig Geld pro Liter, aber kein Bier wird alt.</p>`;
+  const recent = s.log.filter(l => /👷|angesetzt|verkauft/.test(l.text)).slice(-8).reverse();
+  html += group('🕑 Zuletzt', recent.length ? recent.map(l => `<div class="row log ${l.kind}"><span class="log-day">${g.dayLabel(l.day).replace(/, Jahr \d+/, '')}</span><span class="grow log-text">${esc(l.text)}</span></div>`).join('') : empty('Noch nichts.'));
+  return panel('⚙️', 'Produktion', 'Mehrere Sorten nebeneinander fahren – automatisch', html);
+}
+
+const VIEWS = { barrel: barrelView, styles: stylesView, production: productionView, home, brew: brewView, ferment: fermentView, shop: shopView, gear: gearView, courses: coursesView, cellar: cellarView,
   donate: donateView, league: leagueView, diary: diaryView, sudbuch: sudbuchView };
 
 // ---------- Events ----------
@@ -601,6 +726,8 @@ export function initGameUi() {
   body.addEventListener('input', e => {
     if (e.target.id === 'mashT') { paintMash(); return; }
     if (e.target.id === 'bName') { brewForm.recipe.name = e.target.value; return; }
+    if (e.target.id === 'blendName') { blendForm.name = e.target.value; return; }
+    if (e.target.id === 'sName') { styleForm.name = e.target.value; return; }
     if (e.target.id !== 'wikiQ') return;
     wiki.q = e.target.value; render();
     const i = $('wikiQ'); i.focus(); i.setSelectionRange(i.value.length, i.value.length);
@@ -608,6 +735,14 @@ export function initGameUi() {
   body.addEventListener('change', e => {
     const t = e.target;
     if (editRecipe(t)) { render(); return; }
+    const td = t.dataset;
+    if ('blend' in td) { blendForm[td.blend] = +t.value; render(); return; }
+    if ('blendl' in td) { blendForm[td.blendl] = Math.max(0, +t.value || 0); render(); return; }
+    if (t.id === 'sBase') { setStyleBase(t.value); render(); return; }
+    if (t.id === 'sYeast') { styleForm.yeastId = t.value; return; }
+    if ('srange' in td) { const x = parseFloat(t.value); if (Number.isFinite(x)) styleForm.ranges[td.srange][+td.pos] = x; render(); return; }
+    if ('plan' in td) { act(() => g.setPlan(s, td.plan, t.checked)); return; }
+    if ('sellrule' in td) { act(() => g.setSellRule(s, td.sellrule, t.value)); return; }
     if (t.id === 'sLevel') act(() => g.setSandboxLevel(s, +t.value));
   });
   body.addEventListener('click', e => {
@@ -621,6 +756,8 @@ export function initGameUi() {
     }
     const pick = e.target.closest('[data-style-pick]');
     if (pick) { brewForm.recipe = freshRecipe(pick.dataset.stylePick); render(); return; }
+    const cpick = e.target.closest('[data-custom-pick]');
+    if (cpick) { const cs = g.customOf(s, cpick.dataset.customPick); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, mashProgram: null, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); render(); } return; }
     const load = e.target.closest('[data-load-recipe]');
     if (load) {
       const x = (s.recipes || []).find(y => y.name === load.dataset.loadRecipe);
@@ -633,6 +770,17 @@ export function initGameUi() {
       case 'brew': act(brewNow); break;
       case 'saveRecipe': act(() => { const x = g.saveRecipe(s, brewForm.recipe); brewForm.recipe.name = x.name; toast(`💾 „${x.name}“ ist jetzt in deinem Sortiment.`, 'good'); }); break;
       case 'delRecipe': if (confirm(`Rezept „${d.name}“ aus dem Sortiment löschen?`)) act(() => g.deleteRecipe(s, d.name)); break;
+      case 'buyBarrel': act(() => g.buyBarrel(s, d.type)); break;
+      case 'fillBarrel': act(() => g.fillBarrel(s, +d.id, +$('bf-beer-' + d.id).value, num('bf-l-' + d.id))); break;
+      case 'emptyBarrel': act(() => { const b = g.emptyBarrel(s, +d.id); overlay = { kind: 'taste', beer: b, text: b.notes.join(' ') }; }); break;
+      case 'blend': act(() => { const b = g.blendBeers(s, [{ beerId: blendForm.a, liters: blendForm.la }, { beerId: blendForm.b, liters: blendForm.lb }], blendForm.name);
+        blendForm.name = ''; overlay = { kind: 'taste', beer: b, text: b.notes.join(' ') }; }); break;
+      case 'createStyle': act(() => { const cs = g.createStyle(s, { name: styleForm.name, base: styleForm.base, ranges: styleForm.ranges, yeastId: styleForm.yeastId });
+        styleForm.name = ''; toast(`🧪 „${cs.name}“ ist geboren. Jetzt ein Rezept dafür bauen!`, 'good'); }); break;
+      case 'delStyle': if (confirm('Diesen Stil löschen? Gespeicherte Rezepte und Bier im Lager bleiben erhalten.')) act(() => g.deleteStyle(s, d.id)); break;
+      case 'brewCustom': { const cs = g.customOf(s, d.id); if (cs) { brewForm.recipe = { ...g.recipeFromCustom(cs), batchL: brewForm.recipe?.batchL || 20, reifung: false }; brewForm.recipe.mashProgram = g.mashProgramOf(brewForm.recipe); go('brew'); } break; }
+      case 'hireHelper': act(() => g.hireHelper(s)); break;
+      case 'fireHelper': act(() => g.fireHelper(s)); break;
       case 'addMalt': {
         const r = brewForm.recipe, used = new Set(r.malts.map(m => m.id));
         r.malts.push({ id: ['carapils', 'wiener', 'muenchner', 'melanoidin'].find(id => !used.has(id)) || 'pilsner', share: 5 }); render(); break;

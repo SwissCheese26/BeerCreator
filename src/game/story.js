@@ -21,7 +21,7 @@ export function abbeyProgress(s) {
     { id: 'donated', text: 'Insgesamt 300 € gespendet', done: s.stats.donated >= 300, have: `${Math.floor(s.stats.donated)} / 300 €` },
     { id: 'stable', text: '4 der letzten Sude gleichmäßig gut (Ø ≥ 65, kaum Schwankung)', done: q.length >= 4 && mean >= 65 && sd <= 6,
       have: q.length >= 4 ? `Ø ${Math.round(mean)}, Schwankung ±${sd.toFixed(1)}` : `${q.length} / 4 Sude` },
-    { id: 'classic', text: 'Keine bunten Experimente (NEIPA, IPA, Berliner Weisse) unter den letzten Suden', done: !recentStyles.some(x => BUNT_STYLES.includes(x)), have: '' },
+    { id: 'classic', text: 'Keine bunten Experimente (NEIPA, IPA, Berliner Weisse) unter den letzten Suden', done: !recentStyles.some(x => BUNT_STYLES.includes(x) || x === 'bunt'), have: '' },
     { id: 'clean', text: 'Kein Ärger mit dem Zoll', done: !s.flags.vorbestraft, have: '' },
   ];
 }
@@ -89,7 +89,7 @@ export const CHAPTERS = [
     id: 'keller',
     title: 'Kapitel 4 – Gerdas Keller',
     intro: 'Im Sommer ist die Garage eine Sauna, im Winter eine Gefriertruhe – deine Biere leiden. Zeit für Technik. Und Gerda hat da eine Idee.',
-    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse'); },
+    onEnter: s => { s.stage = 'keller'; unlock(s, 'ausruestung', 'kurse', 'fasskeller'); },
     objectives: [
       { id: 'gear', text: 'Kaufe einen 50-L-Kessel und einen Gärkühlschrank.', done: s => tierAtLeast(s, 'kettle', 'kessel50') && tierAtLeast(s, 'cooling', 'kuehlschrank') },
       { id: 'styles3', text: 'Braue drei verschiedene Bierstile.', done: s => s.stats.styles.length >= 3 },
@@ -105,6 +105,7 @@ export const CHAPTERS = [
     id: 'wettbewerb',
     title: 'Kapitel 5 – Die Landesmeisterschaft',
     intro: 'Die Landesmeisterschaft der Heim- und Craftbrauer. Die Jury trinkt blind und gnadenlos. Ein Medaillenplatz würde dir Türen öffnen.',
+    onEnter: s => unlock(s, 'produktion', 'stilwerkstatt'),
     objectives: [
       { id: 'medal', text: 'Gewinne eine Medaille.', done: s => s.stats.medals.length >= 1 },
     ],
