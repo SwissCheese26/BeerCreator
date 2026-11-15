@@ -7,7 +7,8 @@ import { hopKey, hopPrice, buyMalt, buyHop, buyYeast, buySanitizer } from './sho
 import { need, rand, log, clamp, round2, spend } from './state.js';
 import { recipePotential, aromaPoints, reifungOf, optionCost } from './recipe.js';
 import { styleView } from './styles.js';
-import { BUNT_STYLES } from './config.js';
+import { BUNT_STYLES, diffOf } from './config.js';
+import { maltMul } from './modes/market.js';
 import { runCostFor, hasTech, techBonuses } from './business.js';
 
 /** Laufende Kosten eines Suds, die beim Ansetzen bezahlt werden: Energie/Wasser und Flaschen/Kronkorken/Etiketten. */
@@ -47,7 +48,7 @@ function plan(s, recipe) {
     }
     if (sandbox) { freshness[i] = 1; return; }
     if (left > 1e-9) missing.push(`${left.toFixed(0)} g ${f === 'extract' ? 'Hopfenextrakt' : h.name + ' (' + HOP_FORMS[f].name + ')'}`);
-    freshness[i] = h.g > 0 ? wsum / (h.g - left || 1) : 1;
+    freshness[i] = h.g > 0 ? (wsum + Math.max(0, left)) / h.g : 1; // Fehlmenge würde frisch gekauft (Frische 1)
   });
   return { calcBase, missing, used, freshness };
 }
@@ -72,7 +73,7 @@ function execution(s, recipe, pv, { fixedTemp = null, rnd = null } = {}) {
   const readyIn = fermentDays + (reif?.days || 0);
   const control = EQUIPMENT.cooling[s.equipment.cooling].control;
   const mid = (yeast.tMin + yeast.tMax) / 2;
-  const ambient = ambientTemp(s.day + fermentDays / 2, !!s.flags.keller);
+  const ambient = ambientTemp(s.day + fermentDays / 2, !!s.flags.keller) + (s.weather || 0);
   const fermTemp = fixedTemp ?? (control === 0 ? ambient : control === 1 ? mid + (rnd ? rnd() * 3 - 1.5 : 0) : mid);
   const dev = Math.max(0, yeast.tMin - fermTemp, fermTemp - yeast.tMax);
   const temp = 20 * Math.max(0, 1 - dev / 6);
@@ -149,7 +150,7 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
 
   // Hygiene: Infektionswurf
   const hyg = hygieneOf(s, sanitized);
-  const infected = !tutorial && rand(s) < Math.pow(1 - hyg, 2) * 0.6;
+  const infected = !tutorial && rand(s) < Math.pow(1 - hyg, 2) * 0.6 * diffOf(s).infect;
   if (infected) { pts.hygiene = -45; flaws.push('infektion'); notes.push('Infektion! Das Bier ist sauer/butterig – die Hygiene hat nicht gereicht.'); }
 
   // Hopfenqualität
@@ -176,7 +177,7 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
   if (tutorial) quality = Math.round(clamp(quality, 55, 72)); // Das erste, geführte Bier gelingt ordentlich – mit Luft nach oben
 
   // Kosten des Suds (zu aktuellen Preisen)
-  const maltCost = c.malts.reduce((a, m) => a + MALT_PRICE[m.id] * m.kg, 0);
+  const maltCost = c.malts.reduce((a, m) => a + MALT_PRICE[m.id] * m.kg * maltMul(s), 0);
   const hopCost = c.hops.reduce((a, h) => a + hopPrice(s, h.id, h.form) * h.g, 0);
   const yeastCost = Math.min(pv.packsNeeded, pv.packsHave) * YEAST_PRICE[recipe.yeastId];
   const energyCost = ENERGY_PER_L * recipe.batchL * (hasTech(s, 'waerme') ? 0.6 : 1) + (sanitized ? SANITIZER_PRICE : 0) + optionCost(recipe);
@@ -189,6 +190,7 @@ export function startBatch(s, recipe, { name, tutorial = false, fermTemp: fixedT
     bunt: BUNT_STYLES.includes(recipe.styleId) || !!recipe.custom?.bunt, startDay: s.day, readyDay: s.day + readyIn,
     liters: round2(recipe.batchL * BOTTLING_LOSS * (recipe.filter && !hasTech(s, 'zentrifuge') ? 0.96 : 1)), quality, filtered: !!recipe.filter, potential: pot.total, flaws, notes, points: pts, fermTemp: round2(fermTemp), pitchRatio: round2(pv.pitchRatio),
     calc: { plato: c.plato, abv: c.abv, ibu: c.ibu, ebc: c.ebc, fgP: c.fgP },
+    hopForms: [...new Set(recipe.hops.map(h => h.form || 'pellet'))],
     cost, costPerLiter: round2(cost.total / (recipe.batchL * BOTTLING_LOSS)), tutorial,
   };
   s.batches.push(batch);

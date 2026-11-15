@@ -16,3 +16,4 @@ export * from './info.js';
 export * from './league.js';
 export * from './tutorial.js';
 export { FEATURES, hasFeature, unlock } from './state.js';
+export * from './modes/index.js';

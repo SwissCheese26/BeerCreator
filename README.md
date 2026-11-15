@@ -88,3 +88,22 @@ Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
 - **🪪 Brauer-Profil:** Die Antworten verschieben drei Achsen (Tradition ↔ Experiment, bescheiden ↔ große Klappe, Heimat ↔ Wachstum). Traditionsbrauer:innen punkten beim Malzmeister, Experimentierer:innen beim Sudhausfunk; Heimat stärkt den Hofverkauf, Geschäftssinn Kneipen und Onlineshop. Große Klappe = größere Ausschläge, auch nach unten. Versprechen („Keine Massenware“, „Ich rette kleine Brauereien“) werden nachgeprüft.
 - **📻 Radio Kesselwelle 98,4:** sechs Sendungen aus den Playlists von reznikov.website (Metalcore, Rock-Klassiker, Reggaeton, Rap Ost, Russendisko Retro, Trap & Hip-Hop). Auf der Startseite läuft immer ein Song; „▶ Spotify“ öffnet ihn im Browser/der Spotify-App (das Spiel selbst spielt nichts ab). Radiospots (zwei Wochen mehr Nachfrage beim Absatzweg der Hörer, stärker wenn dein Bier zum Sound passt), Patenschaften und Gastauftritte im Studio.
 - Tests: `test/step5.test.js`; Zufalls-Bot und Story-Bot nutzen Interviews und Radio.
+
+## Spielmodi
+| Modus | Idee |
+|---|---|
+| **Story** | Große Kampagne von Opas Garage bis zur eigenen Brauerei (Entscheidungen mit Folgen, mehrere Enden). |
+| **Karriere** | Endloses Management mit dynamischem Markt (Saison, Trends, Hopfenernte, Ereignisse), Brauaufträgen mit Frist, Fixkosten, Jahreszielen, Insolvenzrisiko und Punktzahl/Rang nach 5 Jahren. |
+| **Challenge** | 7 handgebaute Rätsel mit Frist und 1–3 Sternen (z. B. *Extrakt-Dilemma*, *Hitzewelle*, *Sparbrauer*, *Meisterprüfung*) plus die **Tagesaufgabe**, die für alle am selben Tag gleich ist. |
+| **Sandbox** | Alles frei, nur die Brau-Simulation zählt; Level einstellbar. |
+
+Schwierigkeit (alle Modi): **Entspannt / Normal / Hardcore** (Hardcore = Ironman mit Autosave).
+
+```
+npm run game                       # Story
+npm run game:karriere              # Karriere  (Zusatz: entspannt | hardcore)
+npm run game:challenges            # Liste der Challenges;  npm run game -- challenge sommerhitze
+npm run game:daily                 # Tagesaufgabe
+npm run game:sandbox
+```
+Neue Terminal-Befehle: `markt`, `liefern <auftrag> <bier>`, `fertig`. Alle Challenges sind per Referenzlösung als lösbar getestet.

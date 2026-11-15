@@ -134,6 +134,12 @@ const METRIC_INFO = {
   schwarzverkauf: ['Schwarzverkauf', 'Bier ohne Gewerbe und ohne Biersteuer zu verkaufen ist Steuerhinterziehung. Fliegt es auf, werden die Steuer nachgefordert, eine Geldstrafe fällig und die Ware beschlagnahmt – und dein Ansehen ist hin.'],
   spenden: ['Spenden', 'Geld oder Freibier für Kirche, Tafel, Kindergarten oder Feuerwehr bringt Ansehen und etwas Ruf. Viele kleine Spenden wirken besser als eine riesige auf einmal.'],
   trappist: ['Trappisten & Abteibier', 'Echte Trappistenbiere werden innerhalb von Klostermauern unter Aufsicht von Mönchen gebraut, die Gewinne gehen an soziale Zwecke; nur wenige Abteien weltweit dürfen das Siegel tragen. Laien arbeiten dort durchaus als Brauer mit. „Abteibier“ ist dagegen oft eine Lizenz. Im Spiel ist die Abtei St. Gambrin erfunden.'],
+  markt: ['Markt (Karriere)', 'Preise schwanken: Sommerbiere (Weizen, Helles, Berliner Weisse) sind im Sommer teurer, Winterbiere (Bock, Stout, Doppelbock) im Winter. Dazu kommen Trends, Hopfenernte und Ereignisse wie Hitzewellen oder Craft-Booms. Verkaufe, was gerade gefragt ist.'],
+  auftrag: ['Brauauftrag', 'Kunden bestellen einen bestimmten Stil mit Menge, Mindestqualität und Frist. Du darfst in Teillieferungen aus mehreren Suden liefern. Zahlt besser als der Markt – aber verfällt der Auftrag, droht Vertragsstrafe und Rufverlust.'],
+  schwierigkeit: ['Schwierigkeit', 'Entspannt: mehr Startgeld, weniger Infektionen, bessere Preise. Hardcore: weniger Geld, mehr Infektionen, niedrigere Preise und Ironman – nur ein automatischer Spielstand, kein Zurück.'],
+  insolvenz: ['Insolvenz', 'Hast du 30 Tage lang fast kein Geld und weder Bier im Gärtank noch im Lager, musst du aufgeben.'],
+  score: ['Punktzahl & Rang (Karriere)', 'Kapital, Ruf, Level, verkaufte Liter, erledigte Aufträge, Medaillen und beste Qualität ergeben die Punktzahl. Daraus folgt dein Rang von „Garagen-Tüftler“ bis „Braulegende“.'],
+  challenge: ['Challenge', 'Handgebaute Aufgabe mit Frist, besonderen Regeln und bis zu drei Sternen. Die Tagesaufgabe ist für alle am selben Tag gleich.'],
   temp: ['Gärtemperatur', 'Jede Hefe hat einen Wohlfühlbereich. Zu warm: Fuselalkohole und Lösungsmittel-Ester. Zu kalt: träge, dünn, evtl. steckengeblieben.'],
 };
 

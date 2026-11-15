@@ -39,4 +39,5 @@ export function spend(s, amount, what) {
   if (s.mode === 'sandbox') return;
   need(s.cash >= amount - 1e-9, `Zu wenig Geld für ${what} (${round2(amount)} € nötig, ${round2(s.cash)} € vorhanden).`);
   s.cash = round2(s.cash - amount);
+  s.stats.spent = round2((s.stats.spent || 0) + amount);
 }

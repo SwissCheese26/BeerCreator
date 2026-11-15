@@ -7,8 +7,21 @@ import { HOPS, HOP_FORMS, STYLES, YEASTS, byId } from '../core/data.js';
 import { newRecipeFromStyle, compute } from '../core/brew.js';
 
 const SAVE = process.env.BEER_SAVE || 'beercreator-save.json';
-const mode = process.argv.includes('sandbox') ? 'sandbox' : 'story';
-let s = fs.existsSync(SAVE) && !process.argv.includes('neu') ? JSON.parse(fs.readFileSync(SAVE, 'utf8')) : g.newGame({ mode, seed: Date.now() % 100000 });
+const argv = process.argv.slice(2);
+const mode = ['sandbox', 'karriere', 'challenge', 'daily'].find(m => argv.includes(m)) || 'story';
+const difficulty = ['entspannt', 'normal', 'hardcore'].find(d => argv.includes(d)) || 'normal';
+const seed = Date.now() % 100000;
+function fresh() {
+  if (mode === 'daily') { const d = new Date().toISOString().slice(0, 10); const sc = g.dailyScenario(d); return g.newGame({ mode: 'challenge', scenario: sc, seed: sc.seed, difficulty }); }
+  if (mode === 'challenge') {
+    const id = argv[argv.indexOf('challenge') + 1];
+    if (!g.SCENARIOS[id]) { console.log('Challenges:\n' + g.challengeList().map(c => `  ${c.id.padEnd(18)} ${c.title} (Schwierigkeit ${'★'.repeat(c.difficulty)}, ${c.deadline} Tage) – ${c.goal}`).join('\n') + '\nStart: npm run game -- challenge <id>   oder   npm run game -- daily'); process.exit(0); }
+    return g.newGame({ mode: 'challenge', challengeId: id, seed, difficulty });
+  }
+  return g.newGame({ mode, seed, difficulty, years: 5 });
+}
+const resume = fs.existsSync(SAVE) && !argv.includes('neu') && mode === 'story' && !argv.includes('sandbox');
+let s = resume ? JSON.parse(fs.readFileSync(SAVE, 'utf8')) : fresh();
 let shown = 0;
 const out = (...a) => console.log(...a);
 
@@ -22,6 +35,13 @@ function flushLog() {
 function status() {
   const x = g.summary(s);
   out(`\nLevel ${x.level.lvl} ${x.level.name} (${x.level.xp} XP${x.level.nextXp ? `, noch ${x.level.toNext} bis Level ${x.level.lvl + 1}` : ', Maximum'})`);
+  if (s.mode === 'karriere') {
+    out(`Karriere Jahr ${s.career.year}${s.career.years ? '/' + s.career.years : ''} | Schwierigkeit ${g.DIFFICULTY[s.difficulty].label} | Punkte ${g.careerScore(s)}`);
+    g.careerGoals(s).forEach(o => out(`  ${o.done ? '✔' : '○'} ${o.text}`));
+    g.openContracts(s).forEach(c => out(`  📦 Auftrag #${c.id} ${c.customer}: ${c.liters} L ${c.styleId} (Q≥${c.minQuality}) ${c.pricePerL} €/L – noch ${c.deadline - s.day} Tage, geliefert ${c.delivered} L`));
+  }
+  if (s.challenge) { const c = g.challengeStatus(s); out(`Challenge „${c.title}“: ${c.goal}\n  Ziel-Sterne bei ${c.thresholds.join(' / ')} ${c.unit} (${c.better === 'lower' ? 'weniger ist besser' : 'mehr ist besser'}) | bisher ${c.best ?? '–'} | ${'⭐'.repeat(c.stars) || 'noch kein Stern'} | noch ${c.daysLeft} Tage`); }
+  if (s.gameOver) out(`\n=== SPIELENDE: ${s.gameOver.reason}${s.gameOver.rank ? ' – Rang ' + s.gameOver.rank : ''}${s.gameOver.stars != null ? ' – ' + s.gameOver.stars + ' ⭐' : ''} | Punkte ${s.gameOver.score} ===`);
   out(`${s.breweryName} | ${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ansehen ${s.honor.toFixed(0)} | Bierliga Platz ${x.rank}/${x.rankOf} | Ort: ${x.stage}`);
   if (s.mode === 'story') g.objectives(s).forEach(o => out(`  ${o.done ? '✔' : '○'} ${o.text}`));
   out(`Ausrüstung: ${Object.entries(s.equipment).map(([k, v]) => g.EQUIPMENT[k][v].name).join(' · ')}`);
@@ -51,7 +71,11 @@ const HELP = `Befehle:
   gewerbe                       – Gewerbe (nach-)anmelden, z. B. nach dem Schwarzverkauf
   weiter [eingabe]              – nächster Tutorial-Schritt (Maischen: Temperatur, Gärplatz: warm/tor) | ueberspringen
   entscheiden <option-id>       – bei einer Story-Entscheidung (oder Zahl 1,2,…)
-  setup <kettle|fermenter|cooling> <stufe>  – nur Sandbox: Ausrüstung frei setzen`;
+  setup <kettle|fermenter|cooling> <stufe>  – nur Sandbox: Ausrüstung frei setzen
+  markt                         – (Karriere) Preisfaktoren je Stil, Hopfenpreis, Trends, Ereignisse
+  liefern <auftrag> <bier>      – (Karriere) Auftrag beliefern, auch in Teillieferungen
+  fertig                        – (Challenge) abgeben und Sterne kassieren
+Modi beim Start:  npm run game | sandbox | karriere [entspannt|normal|hardcore] | challenge <id> | daily`;
 const FORM = { dolde: 'whole', pellet: 'pellet', extrakt: 'extract' };
 
 function run(line) {
@@ -100,17 +124,25 @@ function run(line) {
       case 'weiter': out('  ' + (g.tutorialAct(s, a[0]) || 'OK')); tut(); break;
       case 'ueberspringen': g.skipTutorial(s); break;
       case 'entscheiden': { const c = s.event?.choices; g.resolveEvent(s, c?.[+a[0] - 1]?.id || a[0]); break; }
+      case 'markt': {
+        const m = g.marketReport(s); if (!m) { out('  Nur im Karriere-Modus gibt es einen dynamischen Markt.'); break; }
+        out(`  Hopfenpreis ×${m.hop}, Malzpreis ×${m.malt}, Nachfrage ×${m.demand}${m.trend ? `, Trend: ${m.trend.styleId} (noch ${m.trend.until - s.day} Tage)` : ''}${m.events.length ? ', Ereignisse: ' + m.events.join(', ') : ''}`);
+        out('  Preisfaktor je Stil:  ' + m.styles.map(x => `${x.id} ×${x.mult}`).join(' · ')); break;
+      }
+      case 'liefern': g.fulfillContract(s, +a[0], +a[1]); break;
+      case 'fertig': g.finishChallenge(s); break;
       case 'setup': g.setEquipment(s, a[0], a[1]); break;
-      case 'speichern': fs.writeFileSync(SAVE, JSON.stringify(s)); out('Gespeichert.'); break;
+      case 'speichern': if (g.diffOf(s).ironman) out('Ironman: Es gibt nur den automatischen Spielstand.'); else { fs.writeFileSync(SAVE, JSON.stringify(s)); out('Gespeichert.'); } break;
       case 'beenden': fs.writeFileSync(SAVE, JSON.stringify(s)); process.exit(0);
       case '': break;
       default: out('Unbekannter Befehl. „hilfe“ zeigt alle Befehle.');
     }
   } catch (e) { if (e instanceof g.GameError) out(`  ✗ ${e.message}`); else throw e; }
+  if (s.mode === 'story' || g.diffOf(s).ironman) fs.writeFileSync(SAVE, JSON.stringify(s)); // Autosave (Ironman: immer)
   flushLog();
 }
 
-out(`Beer Creator – ${s.mode === 'sandbox' ? 'Sandbox' : 'Story'}-Modus. „hilfe“ für Befehle.`);
+out(`Beer Creator – ${g.MODES[s.mode].label}-Modus. „hilfe“ für Befehle.`);
 flushLog(); status(); tut();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '> ' });
 rl.prompt();

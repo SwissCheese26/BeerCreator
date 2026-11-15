@@ -125,3 +125,21 @@ export function ambientTemp(day, cellar = false) {
   const base = cellar ? 12 : 11, amp = cellar ? 5 : 12;
   return base + amp * Math.sin(2 * Math.PI * (day - 110) / YEAR_DAYS);
 }
+
+// ---------- Spielmodi: Schwierigkeit, Saison ----------
+export const DIFFICULTY = {
+  entspannt: { label: 'Entspannt', cash: 1.5, infect: 0.6, price: 1.15, demand: 1.15, ironman: false },
+  normal:    { label: 'Normal',    cash: 1.0, infect: 1.0, price: 1.0,  demand: 1.0,  ironman: false },
+  hardcore:  { label: 'Hardcore',  cash: 0.6, infect: 1.5, price: 0.9,  demand: 0.85, ironman: true },
+};
+export const diffOf = s => DIFFICULTY[s.difficulty] || DIFFICULTY.normal;
+
+/** Basispreis je Liter in Abhängigkeit von Qualität und Ruf (ohne Markt/Schwierigkeit). */
+export const basePrice = (quality, reputation) => (1.8 + quality / 100 * 4.2) * (1 + reputation / 200);
+
+/** Saisonale Nachfrage: >0 = Sommerbier, <0 = Winterbier (Anteil der Schwankung). */
+export const STYLE_SEASON = {
+  pils: 0.1, helles: 0.2, weizen: 0.3, koelsch: 0.2, witbier: 0.3, berliner: 0.35, saison: 0.25, pale: 0.1, neipa: 0.15,
+  maerzen: 0, ipa: 0, alt: 0, dunkelweizen: -0.1, dubbel: -0.15, tripel: -0.05,
+  dunkel: -0.2, schwarzbier: -0.15, rauch: -0.25, bock: -0.3, doppelbock: -0.4, porter: -0.3, stout: -0.3, imperial: -0.4,
+};
