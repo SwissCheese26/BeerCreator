@@ -5,7 +5,7 @@ import { START_DAY, YEAR_DAYS, HOBBY_LIMIT_L, LICENSE_COST, CELLAR_RENT, INSURAN
   CHANNELS, DONATION_TARGETS, beerTax, season, diffOf } from './config.js';
 import { initMode, modeTick, marketMultiplier, demandMul } from './modes/index.js';
 import { GameError, rand, log, need, clamp, round2, spend, unlock, FEATURES, hasFeature } from './state.js';
-import { CHAPTERS, EVENTS, ENDINGS, GLOBAL_EVENTS } from './story.js';
+import { CHAPTERS, EVENTS, ENDINGS, GLOBAL_EVENTS, storyTick, pickRandomEvent } from './story.js';
 import { LEVELS, freeStyles, addXp, brewXp, levelInfo } from './progress.js';
 import { qualityLabel } from './batch.js';
 import { ranking } from './league.js';
@@ -95,9 +95,10 @@ export function setBreweryName(s, name) {
 }
 
 // ---------- Story ----------
-function eventView(id) {
+function eventView(id, s) {
   const d = EVENTS[id];
-  return { id, title: d.title, who: d.who || null, text: d.text, choices: d.choices.map(c => ({ id: c.id, label: c.label })) };
+  return { id, title: d.title, who: d.who || null, text: typeof d.text === 'function' ? d.text(s) : d.text,
+    choices: d.choices.map(c => ({ id: c.id, label: typeof c.label === 'function' ? c.label(s) : c.label, enabled: !c.enabled || !!c.enabled(s) })) };
 }
 const eventDue = (s, ev) => !s.flags['done_' + ev.id] && !((s.flags['retry_' + ev.id] || 0) > s.day) && ev.when(s);
 
@@ -107,17 +108,26 @@ export function checkStory(s) {
     if (s.event) return;
     if (s.tutorial.done) { // Nebengeschichten (z. B. die Abtei) laufen kapitelunabhängig
       const g = GLOBAL_EVENTS.find(ev => eventDue(s, ev));
-      if (g) { s.event = eventView(g.id); return; }
+      if (g) { s.event = eventView(g.id, s); return; }
     }
     if (s.ended) return;
     const ch = CHAPTERS[s.chapter];
     if (!ch) { s.ended = true; return; }
+    if (s.tutorial.done) { // Kampagne: Fristen, Fixkosten, Krisen und Mitarbeiter (einmal pro Tag), dann Zufallsereignisse
+      storyTick(s);
+      const rnd = pickRandomEvent(s);
+      if (rnd) { s.event = eventView(rnd, s); return; }
+    }
     if (!s.chapterStarted) { s.chapterStarted = true; log(s, ch.title + '\n' + ch.intro, 'story'); ch.onEnter?.(s); }
     const ev = ch.events.find(e => eventDue(s, e));
-    if (ev) { s.event = eventView(ev.id); return; }
+    if (ev) { s.event = eventView(ev.id, s); return; }
     if (!ch.objectives.every(o => o.done(s))) return;
     log(s, ch.outro.replace('{name}', s.breweryName), 'story');
-    if (ch.ending) { s.ended = true; s.stage = 'brauerei'; log(s, ENDINGS[ch.ending].replace('{name}', s.breweryName), 'story'); return; }
+    ch.onExit?.(s);
+    if (ch.ending) {
+      const key = typeof ch.ending === 'function' ? ch.ending(s) : ch.ending;
+      s.ended = true; s.ending = key; s.stage = 'brauerei'; log(s, ENDINGS[key].replace('{name}', s.breweryName), 'story'); return;
+    }
     s.chapter++; s.chapterStarted = false;
   }
 }
@@ -131,7 +141,7 @@ export function resolveEvent(s, choiceId) {
   const text = choice.apply(s);
   s.reputation = round2(clamp(s.reputation, 0, 100)); s.honor = round2(clamp(s.honor, 0, 100));
   log(s, text, 'story');
-  if (choice.done !== false) s.flags['done_' + s.event.id] = true;
+  if (choice.done !== false && !def.random) s.flags['done_' + s.event.id] = true;
   s.event = null;
   checkStory(s);
   return text;
@@ -139,7 +149,7 @@ export function resolveEvent(s, choiceId) {
 
 export function objectives(s) {
   const ch = CHAPTERS[s.chapter];
-  return ch && !s.ended ? ch.objectives.map(o => ({ id: o.id, text: o.text, done: o.done(s) })) : [];
+  return ch && !s.ended ? ch.objectives.map(o => ({ id: o.id, text: typeof o.text === 'function' ? o.text(s) : o.text, done: o.done(s), progress: o.progress ? o.progress(s) : '' })) : [];
 }
 
 // ---------- Zeit ----------

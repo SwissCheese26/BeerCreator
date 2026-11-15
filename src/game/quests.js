@@ -69,6 +69,18 @@ export const QUESTS = {
     } },
 };
 export const OFFER_DAYS = 10;
+
+/** Story-Auftrag gezielt anbieten (läuft neben den Zufallsaufträgen und zählt nicht gegen deren Grenze). */
+export function offerQuest(s, id) {
+  const q = questsOf(s), d = QUESTS[id];
+  if (!d || [...q.offered, ...q.active].some(x => x.id === id) || q.done.includes(id) || q.failed.includes(id) || q.declined.includes(id)) return false;
+  q.active.push({ id, start: s.day, due: s.day + d.days }); // Story-Aufträge gelten sofort als angenommen (sie gehören zur Geschichte)
+  log(s, `📮 NEUER AUFTRAG von ${QUEST_PEOPLE[d.who][1]}: „${d.title}“ – ${d.days} Tage Zeit. ${d.text}`, 'good');
+  return true;
+}
+export const questDone = (s, id) => questsOf(s).done.includes(id);
+/** Ein Story-Auftrag ist „erledigt“, wenn er geliefert, endgültig gescheitert oder abgelehnt wurde (Konsequenzen gelten dann). */
+export const questSettled = (s, id) => { const q = questsOf(s); return q.done.includes(id) || q.failed.includes(id) || q.declined.includes(id); };
 const MAX_OPEN = 2;
 
 export const questsOf = s => (s.quests ||= { offered: [], active: [], done: [], failed: [], declined: [] });
@@ -87,15 +99,22 @@ export function questsDaily(s) {
   for (const a of [...q.active]) {
     const d = QUESTS[a.id];
     if (d.kind === 'goal' && d.steps.every(st => st.done(s))) { finish(s, a, d); continue; }
+    if (a.due < s.day && d.story && !a.retried) { // Story-Aufträge: eine faire zweite Chance mit neuer Frist (gelieferte Menge zählt weiter)
+      a.retried = true; a.due = s.day + (d.retryDays ?? 35);
+      log(s, `📮 Frist verpasst: „${d.title}“. ${QUEST_PEOPLE[d.who][1]} gibt dir eine zweite Chance – neue Frist in ${d.retryDays ?? 35} Tagen.`, 'bad');
+      continue;
+    }
     if (a.due < s.day) {
       q.active = q.active.filter(x => x !== a); q.failed.push(a.id);
-      const pen = d.kind === 'goal' ? 0 : 2;
+      if (d.story) { log(s, `📮 „${d.title}“ ist gescheitert.`, 'bad'); d.fail?.(s); }
+      const pen = d.kind === 'goal' || d.story ? 0 : 2;
       s.honor = round2(clamp(s.honor - pen, 0, 100)); s.reputation = round2(clamp(s.reputation - pen, 0, 100));
       log(s, `📮 Frist verpasst: „${d.title}“. ${QUEST_PEOPLE[d.who][1]} ist enttäuscht.${pen ? ` Ansehen −${pen}, Ruf −${pen}.` : ''}`, 'bad');
     }
   }
-  if (q.offered.length + q.active.length >= MAX_OPEN || rand(s) > 0.06) return;
-  const cand = Object.entries(QUESTS).filter(([id, d]) => !seen(q, id) && d.when(s));
+  const open = [...q.offered, ...q.active].filter(x => !QUESTS[x.id].story).length;
+  if (open >= MAX_OPEN || rand(s) > 0.06) return;
+  const cand = Object.entries(QUESTS).filter(([id, d]) => !d.story && !seen(q, id) && d.when(s));
   if (!cand.length) return;
   const [id, d] = cand[Math.floor(rand(s) * cand.length)];
   q.offered.push({ id, until: s.day + OFFER_DAYS });
@@ -115,6 +134,7 @@ export function declineQuest(s, id) {
   need(q.offered.some(x => x.id === id), 'Dieses Angebot gibt es nicht (mehr).');
   q.offered = q.offered.filter(x => x.id !== id); q.declined.push(id);
   log(s, `📮 Auftrag „${QUESTS[id].title}“ abgelehnt.`);
+  if (QUESTS[id].story) QUESTS[id].fail?.(s);
 }
 
 /** Passt dieses Bier zum Liefer-Auftrag? Liefert { ok, reason }. */
@@ -123,7 +143,11 @@ export function questFits(s, id, beer) {
   if (d.styles && !d.styles.includes(beer.styleId)) return { ok: false, reason: `Gewünscht: ${d.styles.map(x => byId(STYLES, x).name).join(', ')} – „${beer.name}“ ist ${styleView(beer).name}.` };
   if (beer.quality < d.minQ) return { ok: false, reason: `Qualität ${d.minQ} nötig, „${beer.name}“ hat ${beer.quality}.` };
   if ((beer.flaws || []).includes('infektion')) return { ok: false, reason: 'Ein infiziertes Bier kannst du nicht abgeben.' };
-  if (beer.liters < d.liters - 1e-9) return { ok: false, reason: `${d.liters} L nötig, nur ${beer.liters} L im Lager.` };
+  for (const [key, label, unit] of [['ibu', 'Bittere', 'IBU'], ['ebc', 'Farbe', 'EBC'], ['abv', 'Alkohol', '% vol']]) {
+    const r = d[key];
+    if (r && (beer[key] < r[0] - 1e-9 || beer[key] > r[1] + 1e-9)) return { ok: false, reason: `${label} ${r[0]}–${r[1]} ${unit} gewünscht, „${beer.name}“ hat ${beer[key].toFixed(1)}.` };
+  }
+  if (!d.story && beer.liters < d.liters - 1e-9) return { ok: false, reason: `${d.liters} L nötig, nur ${beer.liters} L im Lager.` };
   return { ok: true };
 }
 
@@ -136,11 +160,15 @@ export function deliverQuest(s, id, beerId) {
   need(b, 'Dieses Bier gibt es nicht im Lager.');
   const fit = questFits(s, id, b);
   need(fit.ok, fit.reason);
-  const tax = s.license ? round2(beerTax(d.liters, b.plato, s.taxedLYear / 100)) : 0;
-  need(s.cash >= tax - 1e-9, `Für ${d.liters} L fallen ${tax} € Biersteuer an – so viel Geld hast du nicht.`);
-  b.liters = round2(b.liters - d.liters);
-  if (tax) { s.cash = round2(s.cash - tax); s.taxedLYear += d.liters; s.stats.taxPaid = round2(s.stats.taxPaid + tax); }
-  if (d.paid) s.stats.soldL = round2(s.stats.soldL + d.liters); else s.stats.givenL = round2(s.stats.givenL + d.liters);
+  need(!d.paid || s.license || s.flags.schwarz, 'Für bezahlte Aufträge brauchst du ein Gewerbe.');
+  const liters = d.story ? round2(Math.min(b.liters, d.liters - (a.got || 0))) : d.liters; // Story-Aufträge dürfen in Teillieferungen erledigt werden
+  const tax = s.license ? round2(beerTax(liters, b.plato, s.taxedLYear / 100)) : 0;
+  need(s.cash >= tax - 1e-9, `Für ${liters} L fallen ${tax} € Biersteuer an – so viel Geld hast du nicht.`);
+  b.liters = round2(b.liters - liters);
+  if (tax) { s.cash = round2(s.cash - tax); s.taxedLYear += liters; s.stats.taxPaid = round2(s.stats.taxPaid + tax); }
+  if (d.paid) s.stats.soldL = round2(s.stats.soldL + liters); else s.stats.givenL = round2(s.stats.givenL + liters);
+  a.got = round2((a.got || 0) + liters);
+  if (d.story && a.got < d.liters - 1e-9) { log(s, `📮 ${liters} L für „${d.title}“ geliefert – es fehlen noch ${round2(d.liters - a.got)} L.`, 'good'); return; }
   finish(s, a, d, tax);
 }
 
@@ -159,7 +187,7 @@ export function questView(s) {
   const q = questsOf(s);
   const view = (x, state) => {
     const d = QUESTS[x.id];
-    return { id: x.id, state, title: d.title, text: d.text, who: d.who, kind: d.kind, liters: d.liters, minQ: d.minQ, styles: d.styles,
+    return { id: x.id, state, title: d.title, text: d.text, who: d.who, kind: d.kind, liters: d.liters, minQ: d.minQ, styles: d.styles, ibu: d.ibu, ebc: d.ebc, abv: d.abv, story: !!d.story, got: x.got || 0,
       until: x.until, due: x.due, steps: d.steps?.map(st => ({ text: st.text, done: st.done(s) })) };
   };
   return { offered: q.offered.map(x => view(x, 'offered')), active: q.active.map(x => view(x, 'active')),

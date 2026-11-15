@@ -4,6 +4,15 @@
 import { TIER_ORDER, CELLAR_RENT, LICENSE_COST, HOBBY_LIMIT_L, BUNT_STYLES } from './config.js';
 import { log, rand, need, spend, round2, unlock, clamp } from './state.js';
 import { addXp, levelOf } from './progress.js';
+import { questSettled } from './quests.js';
+import { earlyEvents, earlyGlobals } from './campaign/early.js';
+import { act3Chapters, act3Events } from './campaign/act3.js';
+import { act4Chapters, act4Events } from './campaign/act4.js';
+import { act5Chapters, act5Events } from './campaign/act5.js';
+import { act6Chapters, act6Events, randomEvents } from './campaign/act6.js';
+import { storyTick, AUTO_OFFERS } from './campaign/tick.js';
+import { ensureStory } from './campaign/common.js';
+export { storyTick, AUTO_OFFERS };
 
 const tierAtLeast = (s, slot, tier) => TIER_ORDER[slot].indexOf(s.equipment[slot]) >= TIER_ORDER[slot].indexOf(tier);
 const stockOf = s => s.beers.filter(b => b.liters > 0.01);
@@ -63,11 +72,14 @@ export const CHAPTERS = [
     objectives: [
       { id: 'give20', text: 'Verschenke insgesamt 20 Liter Bier.', done: s => s.stats.givenL >= 20 },
       { id: 'rep8', text: 'Erreiche 8 Ruf.', done: s => s.reputation >= 8 },
+      { id: 'fass', text: 'Liefere die Fässer für das Straßenfest (oder räume die Folgen auf).', done: s => questSettled(s, 'fest_fass') },
+      { id: 'kowalski', text: 'Beliefere Frau Kowalskis Goldene Hochzeit.', done: s => questSettled(s, 'kowalski_garten') },
     ],
     outro: 'Die Leute reden. „Wo kann man das kaufen?“ – diese Frage hörst du den ganzen Abend.',
     events: [
       { id: 'fest_einladung', when: () => true },
       { id: 'kenner', when: s => s.stats.givenL >= 8 },
+      { id: 'fest_abend', when: s => !!s.flags.done_fest_einladung && s.stats.givenL >= 12 },
     ],
   },
   {
@@ -78,6 +90,8 @@ export const CHAPTERS = [
     objectives: [
       { id: 'legal', text: 'Kläre deinen Status (Gewerbe oder anderer Weg).', done: s => !!s.flags.done_gewerbe },
       { id: 'sell50', text: 'Verkaufe insgesamt 50 Liter.', done: s => s.stats.soldL >= 50 },
+      { id: 'lvl2', text: 'Erreiche Level 2 (Hobbybrauer).', done: s => levelOf(s.skill.xp).lvl >= 2 },
+      { id: 'baeckerei', text: 'Beliefere die Bäckerei (oder räume die Folgen auf).', done: s => questSettled(s, 'baeckerei') || !s.license },
     ],
     outro: 'Die ersten Euros klimpern in Opas Umschlag. Jetzt wird es ernst.',
     events: [
@@ -94,10 +108,12 @@ export const CHAPTERS = [
       { id: 'gear', text: 'Kaufe einen 50-L-Kessel und einen Gärkühlschrank.', done: s => tierAtLeast(s, 'kettle', 'kessel50') && tierAtLeast(s, 'cooling', 'kuehlschrank') },
       { id: 'styles3', text: 'Braue drei verschiedene Bierstile.', done: s => s.stats.styles.length >= 3 },
       { id: 'q65', text: 'Braue ein Bier mit Qualität 65 oder mehr.', done: s => s.stats.bestQuality >= 65 },
+      { id: 'gerda', text: 'Löse Gerdas Märzen-Probe (oder räume die Folgen auf).', done: s => questSettled(s, 'gerda_maerzen') },
     ],
     outro: 'Konstante Temperaturen, saubere Gärung. Dein Bier schmeckt plötzlich nach Absicht statt nach Zufall.',
     events: [
       { id: 'keller_angebot', when: () => true },
+      { id: 'gerda_buch', when: s => !!s.flags.done_keller_angebot },
       { id: 'kursleiter', when: s => levelOf(s.skill.xp).lvl >= 2 && !s.unlocked.includes('maerzen') },
     ],
   },
@@ -108,9 +124,10 @@ export const CHAPTERS = [
     onEnter: s => unlock(s, 'produktion', 'stilwerkstatt', 'technik'),
     objectives: [
       { id: 'medal', text: 'Gewinne eine Medaille.', done: s => s.stats.medals.length >= 1 },
+      { id: 'lvl4', text: 'Erreiche Level 4 (Sudmeister).', done: s => levelOf(s.skill.xp).lvl >= 4, progress: s => `Level ${levelOf(s.skill.xp).lvl} / 4` },
     ],
     outro: 'Eine Medaille an der Garagenwand. Opa wäre stolz gewesen.',
-    events: [{ id: 'wettbewerb', when: s => stockOf(s).some(b => b.quality >= 55) }],
+    events: [{ id: 'merle_trifft', when: () => true }, { id: 'wettbewerb', when: s => !!s.flags.done_merle_trifft && stockOf(s).some(b => b.quality >= 55) }],
   },
   {
     id: 'brauerei',
@@ -118,20 +135,29 @@ export const CHAPTERS = [
     onEnter: s => unlock(s, 'industrie'),
     intro: 'Ein Großhändler und ein Hopfenbauer buhlen um dich. Jede Entscheidung hat Folgen für Preis, Qualität und Ruf.',
     objectives: [
-      { id: 'rep50', text: 'Erreiche 50 Ruf.', done: s => s.reputation >= 50 },
-      { id: 'cash4000', text: 'Sammle 4000 € Kapital.', done: s => s.cash >= 4000 },
+      { id: 'rep40', text: 'Erreiche 40 Ruf.', done: s => s.reputation >= 40 },
+      { id: 'cash1500', text: 'Sammle 1500 € Kapital.', done: s => s.cash >= 1500 },
       { id: 'vendor', text: 'Entscheide dich für einen Hopfen-Lieferanten.', done: s => !!s.flags.done_lieferant },
     ],
     outro: 'Du kündigst deinen Job. Über dem Tor steht in Opas Handschrift: „{name}“.',
     events: [{ id: 'lieferant', when: () => true }],
-    ending: 'brauerei',
   },
+  ...act3Chapters, ...act4Chapters, ...act5Chapters, ...act6Chapters,
 ];
+
+// Zusätzliche Nebenquests, die ab bestimmten Kapiteln gezielt angeboten werden (zusätzlich zu den Zufallsaufträgen).
+AUTO_OFFERS.push(
+  { id: 'kowalski_garten', when: s => s.chapter >= 2 },
+  { id: 'fest_fass', when: s => s.chapter >= 2 && !!s.flags.fest },
+  { id: 'baeckerei', when: s => s.chapter >= 3 && s.license },
+  { id: 'kalle_pils', when: s => false },
+);
 
 // Nebengeschichten, die unabhängig vom Kapitel auftauchen können.
 export const GLOBAL_EVENTS = [
   { id: 'abtei_besuch', when: s => s.chapter >= 3 && abbeyReady(s) },
   { id: 'abtei_sud', when: s => !!s.flags.abtei && stockOf(s).some(b => b.styleId === 'dubbel' && b.quality >= 72) },
+  ...earlyGlobals,
 ];
 
 // ----- Ereignisse mit Entscheidungen -----
@@ -287,7 +313,28 @@ export const EVENTS = {
   },
 };
 
+Object.assign(EVENTS, earlyEvents, act3Events, act4Events, act5Events, act6Events, randomEvents);
+
 export const ENDINGS = {
-  brauerei: 'ENDE: „{name}“ eröffnet. Du hast aus Opas Garage ein echtes Unternehmen gemacht. Du kannst weiterspielen – ' +
-    'und die Karrierewege Craft, Großbrauerei und Kloster kommen als Nächstes.',
+  handwerk: 'ENDE – HANDWERK: „{name}“ bleibt, was sie ist: eine Brauerei mit Gesicht. Eine Handvoll Mitarbeiter, die alle den Chef duzen, ein Sudhaus mit Fachwerk, jedes Fass mit Handschlag. ' +
+    'Du hast nie die größten Zahlen geschrieben, aber die ehrlichsten – und wenn Fremde nach dem besten Bier der Gegend fragen, nennt man deinen Namen.',
+  industrie: 'ENDE – INDUSTRIE: „{name}“ wächst. Neue Tanks, eine Dosenlinie, Lieferwagen in der halben Republik – Opas Bier schmeckt jetzt in Hamburg und in München. ' +
+    'Du bist ein Unternehmer geworden, der Zahlen liebt, Märkte versteht und manchmal nachts im alten Sudhaus sitzt, nur um es riechen zu können.',
+  genossenschaft: 'ENDE – GENOSSENSCHAFT: „{name}“ gehört dem Dorf. Vierhundert Mitglieder, eine Satzung auf Bierdeckel und ein Aufsichtsrat, der vor allem Kuchen kontrolliert. ' +
+    'Niemand kann sie dir wegkaufen, und niemand will es mehr: Sie ist das Gemeinschaftsprojekt, das Opa sich immer gewünscht hat.',
+  uebernahme: 'ENDE – ÜBERNAHME: Du verkaufst „{name}“ an die Massivbräu AG. Eine Million, ein Büro mit Aussicht, ein „Craft-Segment“ in der Konzernbroschüre. ' +
+    'Das Sudhaus bleibt, der Name bleibt auf dem Etikett – und manchmal, an Opas Todestag, stellst du dich in die Halle, die nun jemand anderem gehört, und lächelst trotzdem.',
 };
+
+/** Zufallsereignis des Tages (höchstens alle ~18 Tage, deterministisch über rand(s), mit Abklingzeit je Ereignis). */
+export function pickRandomEvent(s) {
+  const st = ensureStory(s);
+  if (s.ended || s.day === st.randDay || s.day - st.lastRand < 18 || s.chapter < 1) return null;
+  st.randDay = s.day;
+  if (rand(s) > 0.1) return null;
+  const ids = Object.keys(randomEvents).filter(id => (st.cool[id] || 0) <= s.day && randomEvents[id].when(s));
+  if (!ids.length) return null;
+  const id = ids[Math.floor(rand(s) * ids.length)];
+  st.lastRand = s.day; st.cool[id] = s.day + randomEvents[id].cooldown;
+  return id;
+}

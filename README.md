@@ -107,3 +107,20 @@ npm run game:daily                 # Tagesaufgabe
 npm run game:sandbox
 ```
 Neue Terminal-Befehle: `markt`, `liefern <auftrag> <bier>`, `fertig`. Alle Challenges sind per Referenzlösung als lösbar getestet.
+
+## Große Kampagne (Story-Modus, ca. 3 Stunden)
+20 Kapitel in 6 Akten, 67 Ereignisse mit Entscheidungen, 31 Aufträge (21 davon Story-Aufträge über `quests.js`), rund 10.000 Wörter Text (`src/game/story.js`, `src/game/campaign/`).
+
+| Akt | Kapitel | Inhalt |
+|---|---|---|
+| I Garage | 1–3 | Opas Erbe, Straßenfest, Gewerbe, Wochenmarkt |
+| II Nebenerwerb | 4–6 | Gerdas Keller, Landesmeisterschaft, Hopfen-Deal |
+| III Wettbewerbe | 7–8 | Rivalin Merle (helfen, handeln, sabotieren), Bundesmeisterschaft |
+| IV Brauerei gründen | 9–14 | Behörden, Finanzierung, Halle, Team, Marke, Eröffnung |
+| V Wachstum & Krise | 15–18 | Handel, Hopfenkrise, Infektions-Skandal, Übernahmeangebot |
+| VI Finale | 19 | Opas Todestag und die Entscheidung |
+
+- **Vier Enden:** Handwerk, Industrie, Genossenschaft, Übernahme – abhängig von früheren Entscheidungen (Investor, Verbündete, Sabotage, Hopfenvertrag, Ansehen, Rezeptbuch).
+- **Opas Rezeptbuch:** sechs Seiten als roter Faden; mit allen Seiten gibt es am Ende einen besonderen Auftrag.
+- **Folgen:** Kredit- und Investoren-Raten, Gehälter, Hopfen-Preisschock, Skandale und alte Sünden kommen zurück. Fristen haben eine zweite Chance, danach eine Konsequenz statt Sackgasse.
+- **Tests:** `test/campaign.test.js` (jede Option anwendbar, alle Enden erreichbar, kein Soft-Lock, Spielzeit-Schätzung 100–240 min für einen effizienten Spieler; Bot-Läufe liegen bei ca. 185–220 min).
