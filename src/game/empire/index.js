@@ -161,27 +161,38 @@ export function buildBrewery(s, countryId, capKhl, styleId) {
   need(byId(STYLES, styleId), 'Unbekannter Bierstil.');
   need(capKhl >= 10 && capKhl <= 5000, 'Kapazität: 10 bis 5000 Tausend hl.');
   need(e.breweries.length < hq(s).maxBreweries, `Deine Zentrale verwaltet höchstens ${hq(s).maxBreweries} Brauereien. Baue die Zentrale aus.`);
-  const cost = Math.round(capKhl * 1000 * 95 * c.cost);
+  const cost = buildCost(countryId, capKhl);
   money(s, cost, `den Neubau in ${c.name}`);
-  const months = 6 + Math.min(12, Math.floor(capKhl / 100));
+  const months = buildMonths(capKhl);
   const nth = e.breweries.filter(b => b.country === countryId).length + 1;
   e.breweries.push({ id: e.nextId++, country: countryId, name: `${e.name} ${c.name} ${nth}`, capKhl, tech: 3, quality: 58, brand: 22, style: styleId, status: 'bau', readyMonth: month(s) + months, integration: 0 });
   log(s, `🏗️ Neubau in ${c.name}: ${capKhl} Tsd. hl, ${fmt(cost)}, fertig in ${months} Monaten.`, 'good');
+}
+
+export const buildCost = (countryId, capKhl) => Math.round(capKhl * 1000 * 95 * countryOf(countryId).cost);
+export const buildMonths = capKhl => 6 + Math.min(12, Math.floor(capKhl / 100));
+/** Kosten und Wirkung eines Ausbaus (für Anzeigen). */
+export function upgradeCost(b, what) {
+  const c = countryOf(b.country);
+  if (what === 'kapazitaet') { const add = Math.max(10, Math.round(b.capKhl * 0.25 / 5) * 5); return { cost: Math.round(add * 1000 * 85 * c.cost), add }; }
+  if (what === 'technik') return { cost: b.tech >= 5 ? null : Math.round(b.capKhl * 1000 * 8 * b.tech * c.cost) };
+  if (what === 'qualitaet') return { cost: b.quality >= MAX_QUALITY ? null : Math.round(b.capKhl * 1000 * (3 + b.quality / 10) * c.cost) };
+  return { cost: null };
 }
 
 export function upgradeBrewery(s, id, what) {
   const b = own(s, id), c = countryOf(b.country);
   need(b.status === 'betrieb', 'Die Brauerei ist gerade nicht im Betrieb.');
   if (what === 'kapazitaet') {
-    const add = Math.max(10, Math.round(b.capKhl * 0.25 / 5) * 5), cost = Math.round(add * 1000 * 85 * c.cost);
+    const { add, cost } = upgradeCost(b, what);
     money(s, cost, 'den Kapazitätsausbau'); b.capKhl += add; log(s, `${b.name}: +${add} Tsd. hl Kapazität (${fmt(cost)}).`, 'good');
   } else if (what === 'technik') {
     need(b.tech < 5, 'Höchste Technikstufe erreicht.');
-    const cost = Math.round(b.capKhl * 1000 * 8 * b.tech * c.cost);
+    const { cost } = upgradeCost(b, what);
     money(s, cost, 'die Modernisierung'); b.tech++; b.quality = Math.min(MAX_QUALITY, b.quality + 3); log(s, `${b.name}: Technikstufe ${b.tech} (${fmt(cost)}). Geringere Kosten, bessere Qualität.`, 'good');
   } else if (what === 'qualitaet') {
     need(b.quality < MAX_QUALITY, 'Mehr Qualität geht nicht.');
-    const cost = Math.round(b.capKhl * 1000 * (3 + b.quality / 10) * c.cost);
+    const { cost } = upgradeCost(b, what);
     money(s, cost, 'das Qualitätsprogramm'); b.quality = Math.min(MAX_QUALITY, b.quality + 4); log(s, `${b.name}: Qualität auf ${b.quality} (${fmt(cost)}).`, 'good');
   } else need(false, 'Ausbau: kapazitaet | technik | qualitaet');
 }

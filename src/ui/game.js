@@ -59,7 +59,7 @@ const GOAL_HINT = {
 };
 const WIKI_KINDS = { style: 'Bierstile', malt: 'Malze', hop: 'Hopfen', form: 'Hopfenformen', yeast: 'Hefen', gear: 'Ausrüstung', metric: 'Begriffe', flaw: 'Fehlaromen' };
 
-let s = null, view = 'home', onExit = () => {}, overlay = null, mashTemp = 60;
+let s = null, view = 'home', onExit = () => {}, overlay = null, mashTemp = 60, starsSent = false;
 const brewForm = { recipe: null, from: null }; // from = Name des geladenen/gespeicherten Rezepts (darf überschrieben werden) // Rezept, das gerade in der Werkstatt bearbeitet wird
 const wiki = { kind: 'style', q: '' };
 const has = f => g.hasFeature(s, f);
@@ -69,10 +69,10 @@ export function loadGame(mode) {
 }
 function save() { try { localStorage.setItem(KEY(s.mode), JSON.stringify(s)); } catch {} }
 
-export function openGame(mode, fresh, exit, breweryName, location) {
+export function openGame(mode, fresh, exit, breweryName, location, opts = {}) {
   onExit = exit;
-  s = (!fresh && loadGame(mode)) || g.newGame({ mode, seed: Date.now() % 100000, breweryName, location });
-  view = 'home'; overlay = null; brewForm.recipe = null;
+  s = (!fresh && loadGame(mode)) || g.newGame({ mode, seed: opts.seed ?? Date.now() % 100000, breweryName, location, difficulty: opts.difficulty, challengeId: opts.challengeId, scenario: opts.scenario, years: mode === 'karriere' ? 5 : undefined });
+  view = 'home'; overlay = null; brewForm.recipe = null; starsSent = !!s.gameOver;
   save(); render();
 }
 
@@ -96,6 +96,7 @@ function afterAct(before) {
   const fresh = s.log.slice(before);
   const unlocked = fresh.filter(l => l.kind === 'unlock').map(l => l.text.replace('🔓 Neu freigeschaltet: ', ''));
   if (unlocked.length && !overlay && !s.event) overlay = { kind: 'unlock', items: unlocked };
+  if (s.mode === 'challenge' && s.gameOver && !starsSent) { starsSent = true; document.dispatchEvent(new CustomEvent('beercreator:stars', { detail: { id: s.challenge.daily ? 'daily' : s.challenge.id, stars: s.gameOver.stars || 0 } })); }
   save(); render();
 }
 const go = v => { view = v; render(); $('gBody').scrollTop = 0; window.scrollTo(0, 0); };
@@ -105,7 +106,7 @@ function render() {
   const sum = g.summary(s), lv = sum.level, sandbox = s.mode === 'sandbox';
   $('gName').textContent = s.breweryName;
   const loc = g.locOf(s);
-  $('gChapter').textContent = `${sandbox ? 'Sandbox' : s.tutorial.done ? sum.chapter : 'Prolog – Opas Sudbuch'} · ${loc.icon} ${loc.name}`;
+  $('gChapter').textContent = `${s.mode !== 'story' ? g.MODES[s.mode].label : s.tutorial.done ? sum.chapter : 'Prolog – Opas Sudbuch'} · ${loc.icon} ${loc.name}`;
   $('gLogo').innerHTML = s.brand?.designed ? logoHtml(s.brand, 40) : '<img src="../icon.png" alt="">';
   const chip = (icon, label, value, title = '') => `<div class="chip-stat" title="${esc(title)}"><span>${icon}</span><b>${value}</b><small>${label}</small></div>`;
   $('gStats').innerHTML = [
@@ -162,6 +163,7 @@ function home() {
   const tut = g.tutorialView(s);
   if (tut) html += tutorialCard(tut);
   else if (s.mode === 'story') html += goalCard();
+  else html += modeCard();
   html += radioBar();
   html += `<div class="tiles">${TILES.map(tileHtml).join('')}</div>`;
   return html;
@@ -231,8 +233,41 @@ function paintMash() {
   r.style.setProperty('--p', ((t - 50) / 28 * 100) + '%');
 }
 
+function modeCard() {
+  const over = s.gameOver ? `<div class="over-banner ${s.gameOver.reason === 'insolvenz' || s.gameOver.reason === 'gescheitert' ? 'bad' : 'good'}"><b>${s.mode === 'challenge' ? (s.gameOver.stars ? '⭐'.repeat(s.gameOver.stars) + ' bestanden' : 'Nicht geschafft') : s.gameOver.reason === 'insolvenz' ? 'Insolvenz' : 'Karriere beendet'}</b>
+    <span>Punkte ${f0.format(s.gameOver.score)}${s.gameOver.rank ? ' · ' + esc(s.gameOver.rank) : ''}. Zurück ins Menü für ein neues Spiel – oder weiterbrauen im Sandbox-Modus.</span></div>` : '';
+  if (s.mode === 'challenge') {
+    const c = g.challengeStatus(s);
+    return `<section class="goal-card"><div class="goal-head"><small>Challenge${c.daily ? ' · Tagesaufgabe' : ''}</small><h2>${esc(c.title)}</h2></div>${over}
+      <div class="goal-list"><div class="goal"><span class="grow">${esc(c.goal)}</span></div>
+      <div class="goal"><span class="grow">Sterne bei <b>${c.thresholds.join(' / ')}</b> ${esc(c.unit)} (${c.better === 'lower' ? 'weniger ist besser' : 'mehr ist besser'})</span></div>
+      <div class="goal"><span class="grow">Bisher bester Wert: <b>${c.best == null ? '–' : f1.format(c.best)}</b> · ${'⭐'.repeat(c.stars) || 'noch kein Stern'} · noch <b>${Math.max(0, c.daysLeft)}</b> Tage</span>
+      ${c.status === 'laufend' ? '<button class="btn primary" data-action="finishChallenge">Abgeben</button>' : ''}</div></div></section>`;
+  }
+  if (s.mode === 'karriere') {
+    const goals = g.careerGoals(s), open = g.openContracts(s), m = g.marketReport(s);
+    const rows = open.map(c => {
+      const beers = s.beers.filter(b => b.liters > 0.01 && b.styleId === c.styleId && b.quality >= c.minQuality);
+      return `<div class="row"><span class="grow"><span class="row-label">📦 ${esc(c.customer)}: ${c.liters} L ${esc(byId(STYLES, c.styleId).name)}</span>
+        <div class="sub">Qualität ≥ ${c.minQuality} · ${f2.format(c.pricePerL)} €/L · noch ${c.deadline - s.day} Tage · geliefert ${f0.format(c.delivered)} L</div></span>
+        ${beers.length ? `<select id="cb-${c.id}" aria-label="Bier wählen">${beers.map(b => opt(b.id, `${b.name} · ${f0.format(b.liters)} L · Q${b.quality}`)).join('')}</select>
+        <button class="btn primary" data-action="deliverCommission" data-c="${c.id}">Liefern</button>` : '<span class="badge">kein passendes Bier</span>'}</div>`;
+    }).join('');
+    return `<section class="goal-card"><div class="goal-head"><small>Karriere · Jahr ${s.career.year}${s.career.years ? ' von ' + s.career.years : ''} · ${g.DIFFICULTY[s.difficulty].label}</small><h2>Punkte ${f0.format(g.careerScore(s))}</h2></div>${over}
+      <div class="goal-list">${goals.map(o => `<div class="goal ${o.done ? 'done' : ''}"><span class="check">${o.done ? '✓' : ''}</span><span class="grow">${esc(o.text)}</span></div>`).join('')}</div>
+      <div class="group">${rows || '<div class="row sub">Gerade keine Aufträge – jede Woche kann ein neuer eintreffen.</div>'}
+      <div class="row sub">📊 Markt: gefragt ${m.styles.slice(0, 3).map(x => `${esc(x.name)} ×${f2.format(x.mult)}`).join(', ')} · flau ${m.styles.slice(-2).map(x => `${esc(x.name)} ×${f2.format(x.mult)}`).join(', ')} · Hopfen ×${f2.format(m.hop)}${m.trend ? ` · Trend: ${esc(byId(STYLES, m.trend.styleId).name)}` : ''}</div></div></section>`;
+  }
+  return '';
+}
+
 function goalCard() {
-  if (s.ended) return `<section class="goal-card">${bubble('opa', `Geschafft! „${s.breweryName}“ ist eine echte Brauerei. Braue weiter, spende, klettere in der Bierliga – die Karrierewege kommen als Nächstes.`)}</section>`;
+  if (s.ended) {
+    const end = g.ENDINGS?.[s.ending]?.replace('{name}', s.breweryName);
+    return `<section class="goal-card">${bubble('opa', end || `Geschafft! „${s.breweryName}“ ist eine echte Brauerei. Braue weiter, spende, klettere in der Bierliga.`)}
+      <div class="konzern-offer"><div><b>🌍 Und jetzt die Welt?</b><div class="sub">Mach aus „${esc(s.breweryName)}“ eine Weltgruppe: Dein Weg (${esc(s.ending || 'Handwerk')}), dein Ruf und deine Medaillen bestimmen den Start im Braukonzern-Modus. Dein Story-Spielstand bleibt erhalten.</div></div>
+      <button class="btn primary big" data-action="toKonzern">Als Konzern weitermachen</button></div></section>`;
+  }
   const obj = g.objectives(s);
   const next = obj.find(o => !o.done);
   return `<section class="goal-card">
@@ -1043,6 +1078,9 @@ export function initGameUi() {
     const d = b.dataset;
     switch (d.action) {
       case 'brew': act(brewNow); break;
+      case 'toKonzern': { const st = g.empireFromStory(s); document.dispatchEvent(new CustomEvent('beercreator:konzern', { detail: { state: st } })); break; }
+      case 'deliverCommission': act(() => { const r = g.fulfillContract(s, +d.c, +$('cb-' + d.c).value); toast(`📦 ${r.done ? 'Auftrag erfüllt' : 'Teillieferung'}: ${eur(r.revenue)}`, 'good'); }); break;
+      case 'finishChallenge': if (confirm('Challenge jetzt abgeben und Sterne kassieren?')) act(() => g.finishChallenge(s)); break;
       case 'saveRecipe': {
         const r = brewForm.recipe, nm = String(r.name || '').trim();
         // Gleicher Name wie ein anderes Rezept? Fragen statt still überschreiben.

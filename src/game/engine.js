@@ -49,7 +49,7 @@ export function newGame({ mode = 'story', seed = 42, breweryName = DEFAULT_BREWE
     s.inventory.hops.push({ id: 'hallertauer', form: 'whole', g: 200, ageDays: 1200 }); // Opas Hopfenglas
     if (skipTutorial) finishTutorial(s, true);
     checkStory(s);
-  } else initMode(s, { years, challengeId, scenario }); // Karriere / Challenge
+  } else initMode(s, { years, challengeId, scenario, name: breweryName === DEFAULT_BREWERY ? undefined : s.breweryName }); // Karriere / Challenge / Konzern
   return s;
 }
 

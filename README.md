@@ -137,3 +137,9 @@ Vom Regionalbrauer zur Weltgruppe – `npm run game:konzern` (Logik: `src/game/e
 - **Weltlage:** Rezessionen, Pandemien, Energiekrisen, Währungsschocks, Hitzesommer, Handelsstreit, Steuererhöhungen, Skandale und Preise.
 - Terminal-Befehle: `konzern`, `laender`, `land CZ`, `buero CZ`, `uebernehmen CZ-2`, `bauen PL 150 pils`, `ausbau 2 technik`, `werbung CZ 3`, `marke pils`, `zentrale`, `kredit 10000000`, `rangliste`, `monate 12`. Info-Texte zu allen Ländern und Begriffen: `info CZ`, `info ebitda`.
 - Alle Firmen sind erfunden; Zahlen sind vereinfachte Spielwerte. Getestet per Bot: ein guter Spieler landet nach 30 Jahren auf Platz 2–4 der Welt (ca. 60–75 Mio. hl); Nichtstun bringt keinen Aufstieg.
+
+## Oberfläche für alle Modi + Story → Konzern
+- **Hauptmenü** (`src/ui/menu.js`): Story, Sandbox, **Karriere**, **Challenges** (Auswahl mit Sternen, Tagesaufgabe) und **Braukonzern**; Schwierigkeit (Entspannt/Normal/Hardcore) wählbar.
+- **Karriere & Challenge** nutzen die Brau-Oberfläche mit einer Modus-Karte auf dem Dashboard: Jahresziele, Aufträge mit Liefern-Knopf, Marktlage, Challenge-Ziel mit Sternen und „Abgeben“.
+- **Braukonzern-Ansicht** (`src/ui/empire.js`): Weltkarte mit Europa-Ausschnitt (Größe = Markt, Farbe = Brauerei/Büro/unerschlossen), Länderdetails, Zukauf-Liste mit Kartell- und Kapital-Hinweisen, Neubau, Brauereien-Liste (Ausbau, Fokus, Verkauf), Finanzen mit Verlaufsdiagrammen, Kredite, Zentrale, Konzernmarken, Weltrangliste und Lage/Tagebuch.
+- **Story → Konzern:** Nach dem Story-Ende erscheint „Als Konzern weitermachen“. Der Weg (Handwerk, Industrie, Genossenschaft, Übernahme), Ruf, Medaillen und beste Qualität bestimmen Kapital, Zentrale, Größe, Qualität und Marke des Starts (`src/game/empire/fromStory.js`). Der Story-Spielstand bleibt erhalten.

@@ -38,6 +38,36 @@
             <button class="btn" id="btnSandboxNew">Neu starten</button>
           </div>
         </div>
+        <div class="menu-card" id="cardKarriere">
+          <div class="menu-card-icon">📈</div>
+          <div class="menu-card-body">
+            <b>Karriere</b>
+            <span id="karriereInfo">Endloses Management: schwankender Markt, Brauaufträge mit Frist, Fixkosten, Jahresziele – und eine Punktzahl nach fünf Jahren.</span>
+          </div>
+          <div class="menu-card-actions">
+            <button class="btn primary" id="btnKarriereContinue" hidden>Fortsetzen</button>
+            <button class="btn" id="btnKarriereNew">Neues Spiel</button>
+          </div>
+        </div>
+        <button class="menu-card clickable" id="btnChallenge">
+          <div class="menu-card-icon">🎯</div>
+          <div class="menu-card-body">
+            <b>Challenges</b>
+            <span id="challengeInfo">Sieben Rätsel mit Frist und Sternen – plus die Tagesaufgabe, die für alle gleich ist.</span>
+          </div>
+          <div class="menu-card-chevron">›</div>
+        </button>
+        <div class="menu-card" id="cardKonzern">
+          <div class="menu-card-icon">🌍</div>
+          <div class="menu-card-body">
+            <b>Braukonzern</b>
+            <span id="konzernInfo">Vom Regionalbrauer zur Weltgruppe: 26 Länder, 104 Brauereien, Zukäufe, Kredite, Kartellamt und die Weltrangliste.</span>
+          </div>
+          <div class="menu-card-actions">
+            <button class="btn primary" id="btnKonzernContinue" hidden>Fortsetzen</button>
+            <button class="btn" id="btnKonzernNew">Neues Spiel</button>
+          </div>
+        </div>
         <button class="menu-card clickable" id="btnCalc">
           <div class="menu-card-icon">🧮</div>
           <div class="menu-card-body">
@@ -72,6 +102,24 @@
     <main class="g-main" id="gBody"></main>
   </div>
 
+  <!-- Braukonzern -->
+  <div class="game" id="empireView" hidden>
+    <header class="g-top">
+      <div class="g-row">
+        <button class="g-btn" id="eBack" title="Zum Hauptmenü">☰ Menü</button>
+        <div class="g-brand"><span class="g-logo">🌍</span><div><b id="eName"></b><small id="eSub"></small></div></div>
+        <div class="g-wait" id="eWait">
+          <button class="g-btn" data-months="1">⏩ 1 Monat</button>
+          <button class="g-btn" data-months="6">⏩ 6 Monate</button>
+          <button class="g-btn" data-months="12">⏩ 1 Jahr</button>
+        </div>
+      </div>
+      <div class="g-stats" id="eStats"></div>
+      <nav class="tabs" id="eTabs" aria-label="Bereiche"></nav>
+    </header>
+    <main class="g-main" id="eBody"></main>
+  </div>
+
   <div class="modal" id="gModal" hidden>
     <div class="modal-box" id="gModalBox"></div>
   </div>
@@ -83,8 +131,22 @@
       <p class="modal-text center">Den Namen kannst du dir selbst ausdenken. Ein eigenes Logo kommt später. Und: Wo fängst du an?</p>
       <input class="search name-input" id="nameInput" maxlength="40" required minlength="2" value="Heinrichs Hausbrauerei" aria-label="Name der Brauerei">
       <div id="locPick" class="loc-pick" role="radiogroup" aria-label="Wo fängst du an?"></div>
+      <label class="diff-pick" id="diffRow">Schwierigkeit
+        <select id="diffPick" aria-label="Schwierigkeit">
+          <option value="entspannt">Entspannt – mehr Startgeld, weniger Pannen</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hardcore">Hardcore – knapp und gnadenlos, nur ein Spielstand</option>
+        </select></label>
       <div class="btn-row center"><button type="button" class="btn" id="nameCancel">Abbrechen</button><button class="btn primary big" type="submit">🍺 Los geht's</button></div>
     </form>
+  </div>
+  <div class="modal" id="challModal" hidden>
+    <div class="modal-box wide-box">
+      <h2 class="modal-title">🎯 Challenges</h2>
+      <p class="modal-text">Wähle ein Rätsel. Jede Challenge hat eine Frist, besondere Regeln und bis zu drei Sterne.</p>
+      <div id="challList" class="chall-list"></div>
+      <div class="btn-row center"><button class="btn" id="challCancel">Zurück</button></div>
+    </div>
   </div>
   <div class="toast" id="toast" hidden></div>
 

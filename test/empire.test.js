@@ -130,3 +130,33 @@ test('Andere Modi bleiben unberührt: kein Konzern-State im Story-Spiel', () => 
   assert.equal(g.newGame({ mode: 'story' }).empire, undefined);
   assert.equal(g.newGame({ mode: 'karriere' }).empire, undefined);
 });
+
+test('Story-Ende → Konzern: jedes Ende erzeugt einen spielbaren Start, der Weg prägt ihn', async () => {
+  const { playCampaign } = await import('./bot.js').catch(() => ({}));
+  const endings = ['handwerk', 'industrie', 'genossenschaft', 'uebernahme'];
+  const starts = {};
+  for (const e of endings) {
+    const story = g.newGame({ mode: 'story', seed: 9 });
+    story.ended = true; story.ending = e; story.cash = 3200; story.reputation = 60; story.stats.bestQuality = 90; story.stats.medals = [{ medal: 'Gold' }];
+    story.beers.push({ id: 1, styleId: 'helles', quality: 90, liters: 10 });
+    const k = g.empireFromStory(story);
+    starts[e] = k;
+    assert.equal(k.mode, 'konzern'); assert.equal(k.legacy.ending, e); assert.equal(k.stats.medals.length, 1);
+    assert.ok(k.empire.name.includes(story.breweryName));
+    g.advanceDays(k, 30 * 24);
+    assert.ok(Number.isFinite(k.cash) && k.empire.history.length === 24, e);
+    assert.equal(JSON.stringify(JSON.parse(JSON.stringify(k))), JSON.stringify(k));
+  }
+  assert.ok(starts.industrie.empire.hqLevel > starts.handwerk.empire.hqLevel);
+  assert.ok(starts.uebernahme.cash > starts.genossenschaft.cash);
+  assert.ok(starts.handwerk.empire.breweries[0].quality > starts.industrie.empire.breweries[0].quality);
+});
+
+test('Kosten-Helfer stimmen mit den echten Abbuchungen überein', () => {
+  const s = start(); s.cash = 100e6; const b = s.empire.breweries[0];
+  for (const what of ['kapazitaet', 'technik', 'qualitaet']) {
+    const c0 = s.cash, { cost } = E.upgradeCost(b, what);
+    E.upgradeBrewery(s, b.id, what); assert.equal(c0 - s.cash, cost, what);
+  }
+  E.enterCountry(s, 'PL'); const c1 = s.cash; E.buildBrewery(s, 'PL', 120, 'pils'); assert.equal(c1 - s.cash, E.buildCost('PL', 120));
+});
