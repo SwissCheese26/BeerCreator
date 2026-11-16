@@ -1,1 +1,139 @@
-# BeerCreator
+# Beer Creator
+
+Bier-Rezept-Rechner als Windows-Desktop-App (Electron). Alle Regler wirken live auf alle Werte.
+
+## Starten
+```
+npm install
+npm start        # App starten
+npm test         # Logik-Tests
+npm run dist     # Windows-Installer (electron-builder)
+```
+
+## Aufbau
+- `src/core/data.js` – Malze, Hopfen, Hefen, Bierstile (mit Zielbereichen und Startrezepten)
+- `src/core/brew.js` – Brau-Logik (reine Funktionen, ohne UI): Stammwürze ↔ Schüttung, Wasser, IBU (Tinseth), Farbe (Morey), Vergärung, Alkohol, Kalorien, Hefemenge, Warnungen
+- `src/ui/` – Oberfläche im Apple-Stil (Hell/Dunkel automatisch)
+- `test/` – Tests der Logik
+
+## Was passiert, wenn man die Stammwürze erhöht?
+Mehr Malz (bei fester Ausbeute), mehr Hauptguss/Nachguss, höherer Alkohol, mehr Restextrakt/Kalorien,
+weniger Hopfenausbeute (IBU sinkt), mehr Hefe nötig, ab 14 °P sinkt der Vergärungsgrad.
+
+## Story- & Sandbox-Modus (Spiel-Logik, Design folgt zuletzt)
+Spiel-Engine in `src/game/` (pure Funktionen, JSON-Spielstand, deterministischer Zufall):
+- **Story:** Opas Garage → Straßenfest → Gewerbe & Biersteuer → Keller → Landesmeisterschaft → eigene Brauerei. Kapitel mit Zielen, Ereignissen und Entscheidungen mit echten Folgen (`src/game/story.js`).
+- **Sandbox:** unbegrenzt Geld/Zutaten, volle Ausrüstung, keine Story – die Qualitäts-Simulation läuft trotzdem.
+- **Hopfenformen mit Folgen:** Doldenhopfen (Aroma, altert schnell), Pellets (Standard, lagerstabil), Extrakt (billig, 30 % α, aber kein Aroma und „harte“ Bittere). Alter Hopfen oxidiert und bringt weniger Bittere.
+- **Weitere Folgen:** Gärtemperatur (Garage im Sommer/Winter vs. Kühlung), Hefemenge, Hygiene/Infektion, Gärplätze, Kesselgröße, Hobbygrenze 200 L/Jahr, Verkaufsverbot ohne Gewerbe, Biersteuer, Liefervertrag (Extrakt-Exklusivität vs. regionaler Hopfenbauer).
+
+```
+npm run game            # Story im Terminal spielen  („hilfe“ zeigt die Befehle)
+npm run game:sandbox    # Sandbox im Terminal
+npm test                # Logik-, Spiel- und Story-Tests (inkl. Bot, der die Story durchspielt)
+```
+Steuer- und Rechtsregeln sind für das Spiel vereinfacht.
+
+## Alle Bierarten, Skill-Level, Kosten, Info-Texte
+- **22 Bierstile** (`src/core/data.js`): Pils, Helles, Märzen, Weizen, Pale Ale, IPA, Stout, Doppelbock, Kölsch, Dunkel, Schwarzbier, Bock, Altbier, Rauchbier, Porter, Imperial Stout, Dubbel, Tripel, Saison, Witbier, Dunkelweizen, New England IPA, Berliner Weisse – jeder mit Startrezept, Zielbereichen und Maischplan. Dazu 17 Malze, 14 Hopfen, 8 Hefen.
+- **Skill-Level** (`src/game/progress.js`): 8 Stufen (Anfänger … Braulegende), XP aus fertigen Suden (mehr bei schwierigen Stilen und guter Qualität, Bonus beim ersten Mal). Jeder Stil hat Schwierigkeit 1–5, Mindest-Level und **Kursgebühr**; ohne Kurs kein Sud. Level senkt Ungenauigkeit und Infektionsrisiko, und die ersten drei Sude eines Stils gelingen selten perfekt (Übung).
+- **Kosten:** Kurse, Ausrüstung, Zutaten, Energie/Wasser, Desinfektion; jeder Sud zeigt Kosten gesamt und pro Liter (`batch.cost`, `batch.costPerLiter`).
+- **Info-Texte** (`src/game/info.js`): zu jedem Malz, Hopfen, jeder Hopfenform, Hefe, jedem Stil, jeder Ausrüstung, jedem Level, Kennwert und Fehlaroma – `getInfo(kind, id)` / `findInfo(id)`; im Terminal: `info citra`. Ein Test stellt sicher, dass nichts ohne Text bleibt.
+- **Sandbox:** alle Stile frei, Level einstellbar (`level 1–8`), damit man die Folgen von Können ausprobieren kann.
+
+## Version 2: Tutorial, Wirtschaft, Spenden, Abtei
+- **Hauptmenü** mit Story, Sandbox, Rezept-Rechner. Beim neuen Spiel gibst du deiner Brauerei einen eigenen Namen (eigenes Logo: siehe Issue #1).
+- **Dashboard** mit großen Kacheln (🍺 Brauen, 🛒 Einkauf, 🫧 Gärkeller, 📦 Lager & Verkauf, 🙏 Spenden, 🏆 Bierliga, 🔧 Ausrüstung, 🎓 Kurse, 📔 Tagebuch, 📖 Sudbuch). Bereiche sind anfangs gesperrt (🔒) und werden kapitelweise freigeschaltet.
+- **Tutorial „Opas Sudbuch“** (`src/game/tutorial.js`): 11 geführte Schritte mit Opa Heinrich und Gerda – Einkaufen, Putzen, Maischen (Temperatur treffen), Läutern, Kochen, Kühlen, Gärplatz wählen, Warten, Abfüllen, Probieren. Überspringbar.
+- **Wirtschaft** (`src/game/config.js`, `engine.js`): Biersteuer mit Mengenstaffel (§ 2 BierStG) – auch auf verschenktes Bier, sobald ein Gewerbe läuft; Absatzwege Hofverkauf / Gastro / Festival (Sommer, Standgebühr) / Schwarzverkauf (ohne Steuer, aber Kontrollen mit Nachzahlung, Strafe, Ansehensverlust); Nachfrage nach Ruf und Saison; Ruf nur durch Qualität (Wochen-Deckel); Energie und Flaschen kosten beim Ansetzen; Malz-Sackrabatt; Versicherung mit Gewerbe; Hobbygrenze mit Steuer-Nachzahlung; 80 € Hobby-Budget pro Monat aus dem Job.
+- **Spenden & Ansehen**: Kirche, Tafel, Kindergarten, Feuerwehr (auch Freibier). Abnehmende Wirkung pro Woche.
+- **Abtei St. Gambrin (gegr. 1253, erfunden)**: Wer Ansehen ≥ 30 hat, ≥ 300 € gespendet hat, stabil gute klassische Biere braut und sauber bleibt, bekommt Besuch von Bruder Anselm → Dubbel-Rezept → Gemeinschaftssud mit Siegel (+40 % Preis, 30 % des Erlöses an die Abtei).
+- **Bierliga** (`src/game/league.js`): Rangliste mit 19 erfundenen Konkurrenten – du startest unten.
+- Steuer- und Rechtsregeln sind vereinfacht; alle Brauereien, Personen und die Abtei sind erfunden.
+
+## Rezept-Werkstatt (Brauen)
+
+- Rezept frei bauen: Malze (Anteile), Hopfengaben (Sorte, Form, Zeitpunkt, Gramm), Hefe, Stammwürze, Maischverfahren (Kombirast, Stufen, Ferulasäurerast, Dekoktion) und Reifung (kalte Lagerung, Flaschengärung, Kalthopfung, Holzfass).
+- **Potenzial** (0–100) = Höchstpunktzahl des Rezepts: Stiltreue 30, passende Zutaten 20, Hopfenaroma 10, Feinschliff 40 (Kniffe wie edles Grundmalz aus Bodenmälzung, ideales Maischverfahren, typische Zutat, Reifung). Standardrezepte liegen bei ca. 75–80, mit allen Kniffen sind über 92 („Trappisten-Niveau“) möglich.
+- Gärtemperatur, Hefemenge, Hygiene und Erfahrung ziehen davon ab; die Vorschau zeigt die erwartete Qualität.
+- **Sortiment**: Rezepte mit eigenem Namen speichern und wieder laden.
+- Neuer Absatzweg **Getränkehändler holt ab**: nimmt jede Menge, zahlt aber wenig.
+
+## Schritt 2: Fasskeller, Cuvée, Stil-Labor, Produktion (0.2.0-beta)
+
+- **Fasskeller** (ab Kapitel 4): Bourbon-, Rotwein-, Whisky- und Cognacfass (30 L). Passendes, starkes Bier gewinnt bis ca. +14 Qualität (Höhepunkt nach 4–6 Monaten), leichtes Bier leidet; Engelsanteil, Abnutzung des Holzes, Risiko wilder Hefen. Fassbier verkauft sich deutlich teurer.
+- **Cuvée**: zwei Biere verschneiden; Fassbier + frisches Bier gibt einen Bonus, sehr verschiedene Biere beißen sich.
+- **Stil-Labor** (ab Kapitel 5, Level 3): eigene Bierstile mit eigenen Zielwerten auf Basis eines gelernten Stils. Bekanntheit wächst mit gut verkauftem Bier und hebt den Preis; weit vom Basis-Stil entfernte Stile gelten als „bunt“.
+- **Produktion** (ab Kapitel 5): Brauhelfer (150 € im Monat) braut Sortiments-Rezepte aus dem Produktionsplan reihum und verkauft nach Regeln (selbst / Markt / Markt + Händler).
+
+## Schritt 3: Marketing, Webseite & Aufträge (0.3.0-beta)
+
+- **📣 Marketing** (ab Kapitel 3): Proben an fünf erfundene Kritiker schicken (Blog, YouTube, Instagram, Podcast, Fachmagazin) – jeder mit eigenem Geschmack, Reichweite und Mindest-Ruf. Gute Kritiken bringen Ruf und drei Wochen „Rummel“ (mehr Nachfrage), Verrisse kosten Ruf. Kunden vergeben 1–5 Sterne, der Schnitt wirkt auf die Nachfrage. Verkostungen (10/25/50 Gäste) bringen Ruf, Stammkunden für den Hofverkauf und direkte Bewertungen.
+- **🌐 Webseite & Onlineshop** (ab Kapitel 4): Agentur (500 €, sicherer, schönerer Shop) oder KI-Baukasten (90 €, löchrig). Öffnet den Absatzweg „Onlineshop“, dessen Nachfrage stark an den Sternen hängt. Sicherheit in vier Stufen; ohne Pflege drohen Hacks, Ausfälle und Datenschutz-Bußgelder, Backups verkürzen die Ausfallzeit.
+- **📮 Aufträge** (ab Kapitel 2): zehn Nebenquests von Leuten aus dem Dorf (Gerdas Geburtstag, Klaus' Hochzeit, Feuerwehrjubiläum, Ottokars Wildmenü, Bruder Anselms Fastenbier, Opas verlorene Seiten …) mit Frist und Belohnung.
+- Tests: `test/step3.test.js`, Zufalls-Bot `test/fuzz.test.js` (tausende wilde Aktionen ohne Absturz, NaN oder negative Werte).
+
+## Schritt 4: Standort, Technik, Marke, Industrie (0.4.0-beta)
+
+- **📍 Startort** beim neuen Story-Spiel: Kesselbach (Dorf, Hofverkauf, günstiges Malz), Nordhafen (Großstadt, Kneipen & Craft, teure Miete), Gipfelbrunn (Ferienort, Festivals) oder Lindenberg (Unistadt, viel Durst, schmale Preise, eigene Stile werden schneller bekannt). Jeder Ort hat Lieblingsstile.
+- **🔬 Technik** (ab Kapitel 5): Plattenfilter (trüb oder blank – Pils gehört filtriert, Weizen naturtrüb), Sensorik-Schulung, Hefe-Labor, Kryo-Hopfen, Wärmerückgewinnung, Abfüllanlage, Dosenlinie, Zentrifuge.
+- **🎨 Marke & Design** (ab Kapitel 4): Icon-Creator (Symbol, Farbe, Form, Kürzel) – das Logo erscheint in der Kopfzeile. Sieben Flaschen (Euro, Bügel, Steinie, Longneck, belgische Korkenflasche, Dose, eigene Designerflasche) und sieben Gläser; pro Bier wählbar. Passende Aufmachung hebt Preis und Kritiken, ein Exklusivbier in der Massenflasche wirkt billig, eine Luxusflasche für Durchschnittsbier kostet Vertrauen. Aufträge: Logo-Gläser, eigene Kristall-Glasform, eigene Flaschenform, Etikett vom Grafikbüro.
+- **🏭 Industrie** (ab Kapitel 6): Lohnbrauen (500–5000 L, etwas weniger Qualität) und Übernahme kleiner Konkurrenten aus der Bierliga (Wochengewinn, Ligapunkte, Rückverkauf mit Abschlag).
+- Tests: `test/step4.test.js`; Zufalls-Bot deckt alle neuen Aktionen und Startorte ab.
+
+## Schritt 5: Presse, Interviews & Radio (0.5.0-beta)
+
+- **Fix:** Rezepte überschrieben sich still, weil jedes neue Rezept „Mein <Stil>“ hieß – dadurch blieb pro Stil nur eins übrig. Neue Rezepte bekommen jetzt freie Namen („Mein Helles 2“ …), beim Speichern unter einem fremden Namen fragt das Spiel nach.
+- **📰 Presse & Radio** (ab Kapitel 3): Lokalzeitung (je nach Startort), Podcast, Magazin und Regionalfernsehen fragen nach Interviews. Drei Fragen, je drei Antworten – über Opa, den Heimatort, Großbrauereien, Trends, Fehlschläge, Preise, Medaillen, Übernahmen, Musik.
+- **🪪 Brauer-Profil:** Die Antworten verschieben drei Achsen (Tradition ↔ Experiment, bescheiden ↔ große Klappe, Heimat ↔ Wachstum). Traditionsbrauer:innen punkten beim Malzmeister, Experimentierer:innen beim Sudhausfunk; Heimat stärkt den Hofverkauf, Geschäftssinn Kneipen und Onlineshop. Große Klappe = größere Ausschläge, auch nach unten. Versprechen („Keine Massenware“, „Ich rette kleine Brauereien“) werden nachgeprüft.
+- **📻 Radio Kesselwelle 98,4:** sechs Sendungen aus den Playlists von reznikov.website (Metalcore, Rock-Klassiker, Reggaeton, Rap Ost, Russendisko Retro, Trap & Hip-Hop). Auf der Startseite läuft immer ein Song; „▶ Spotify“ öffnet ihn im Browser/der Spotify-App (das Spiel selbst spielt nichts ab). Radiospots (zwei Wochen mehr Nachfrage beim Absatzweg der Hörer, stärker wenn dein Bier zum Sound passt), Patenschaften und Gastauftritte im Studio.
+- Tests: `test/step5.test.js`; Zufalls-Bot und Story-Bot nutzen Interviews und Radio.
+
+## Spielmodi
+| Modus | Idee |
+|---|---|
+| **Story** | Große Kampagne von Opas Garage bis zur eigenen Brauerei (Entscheidungen mit Folgen, mehrere Enden). |
+| **Karriere** | Endloses Management mit dynamischem Markt (Saison, Trends, Hopfenernte, Ereignisse), Brauaufträgen mit Frist, Fixkosten, Jahreszielen, Insolvenzrisiko und Punktzahl/Rang nach 5 Jahren. |
+| **Challenge** | 7 handgebaute Rätsel mit Frist und 1–3 Sternen (z. B. *Extrakt-Dilemma*, *Hitzewelle*, *Sparbrauer*, *Meisterprüfung*) plus die **Tagesaufgabe**, die für alle am selben Tag gleich ist. |
+| **Sandbox** | Alles frei, nur die Brau-Simulation zählt; Level einstellbar. |
+
+Schwierigkeit (alle Modi): **Entspannt / Normal / Hardcore** (Hardcore = Ironman mit Autosave).
+
+```
+npm run game                       # Story
+npm run game:karriere              # Karriere  (Zusatz: entspannt | hardcore)
+npm run game:challenges            # Liste der Challenges;  npm run game -- challenge sommerhitze
+npm run game:daily                 # Tagesaufgabe
+npm run game:sandbox
+```
+Neue Terminal-Befehle: `markt`, `liefern <auftrag> <bier>`, `fertig`. Alle Challenges sind per Referenzlösung als lösbar getestet.
+
+## Große Kampagne (Story-Modus, ca. 3 Stunden)
+20 Kapitel in 6 Akten, 67 Ereignisse mit Entscheidungen, 31 Aufträge (21 davon Story-Aufträge über `quests.js`), rund 10.000 Wörter Text (`src/game/story.js`, `src/game/campaign/`).
+
+| Akt | Kapitel | Inhalt |
+|---|---|---|
+| I Garage | 1–3 | Opas Erbe, Straßenfest, Gewerbe, Wochenmarkt |
+| II Nebenerwerb | 4–6 | Gerdas Keller, Landesmeisterschaft, Hopfen-Deal |
+| III Wettbewerbe | 7–8 | Rivalin Merle (helfen, handeln, sabotieren), Bundesmeisterschaft |
+| IV Brauerei gründen | 9–14 | Behörden, Finanzierung, Halle, Team, Marke, Eröffnung |
+| V Wachstum & Krise | 15–18 | Handel, Hopfenkrise, Infektions-Skandal, Übernahmeangebot |
+| VI Finale | 19 | Opas Todestag und die Entscheidung |
+
+- **Vier Enden:** Handwerk, Industrie, Genossenschaft, Übernahme – abhängig von früheren Entscheidungen (Investor, Verbündete, Sabotage, Hopfenvertrag, Ansehen, Rezeptbuch).
+- **Opas Rezeptbuch:** sechs Seiten als roter Faden; mit allen Seiten gibt es am Ende einen besonderen Auftrag.
+- **Folgen:** Kredit- und Investoren-Raten, Gehälter, Hopfen-Preisschock, Skandale und alte Sünden kommen zurück. Fristen haben eine zweite Chance, danach eine Konsequenz statt Sackgasse.
+- **Tests:** `test/campaign.test.js` (jede Option anwendbar, alle Enden erreichbar, kein Soft-Lock, Spielzeit-Schätzung 100–240 min für einen effizienten Spieler; Bot-Läufe liegen bei ca. 185–220 min).
+
+## Braukonzern-Modus (Weltgruppe)
+Vom Regionalbrauer zur Weltgruppe – `npm run game:konzern` (Logik: `src/game/empire/`).
+
+- **26 Länder** mit eigener Marktgröße, Preisniveau, Biersteuer, Gewinnsteuer, Wachstum, Konkurrenz, Kostenniveau, politischem Risiko und Biervorlieben (z. B. Pils in Tschechien, Stout in Irland, Tripel in Belgien, IPA in den USA).
+- **104 erfundene Zielbrauereien** (je Land klein, mittel, groß und ein nationaler Marktführer) – Übernahme mit Kaufpreis nach EBITDA, Integrationsphase und Synergien.
+- **Neubauten** (Größe, Stil, Bauzeit 6–18 Monate), **Ausbau** (Kapazität, Technik, Qualität), **Haupt-Bierstil**, **Marketing** je Land, **Konzernmarken**.
+- **Finanzen:** Kredite bis 6× EBITDA, Rating AA–B mit Zinsen von 3 bis 11 %, Gewinnsteuern je Land, Zentrale-Kosten, Insolvenz bei dauerhaft fehlender Liquidität.
+- **Kartellamt** stoppt Übernahmen über 35 % Marktanteil. **Einkaufsmacht** macht Größe attraktiv.
+- **Weltrangliste** gegen zehn erfundene Konzerne; Platz 1 (nach mehr als 2 Jahren) beendet das Spiel als Weltmarktführer. Sonst Wertung nach 30 Jahren (Unternehmenswert, Rang, Ausstoß) mit Titeln von „Brauereibesitzer“ bis „Biertitan“.
+- **Weltlage:** Rezessionen, Pandemien, Energiekrisen, Währungsschocks, Hitzesommer, Handelsstreit, Steuererhöhungen, Skandale und Preise.
+- Terminal-Befehle: `konzern`, `laender`, `land CZ`, `buero CZ`, `uebernehmen CZ-2`, `bauen PL 150 pils`, `ausbau 2 technik`, `werbung CZ 3`, `marke pils`, `zentrale`, `kredit 10000000`, `rangliste`, `monate 12`. Info-Texte zu allen Ländern und Begriffen: `info CZ`, `info ebitda`.
+- Alle Firmen sind erfunden; Zahlen sind vereinfachte Spielwerte. Getestet per Bot: ein guter Spieler landet nach 30 Jahren auf Platz 2–4 der Welt (ca. 60–75 Mio. hl); Nichtstun bringt keinen Aufstieg.
