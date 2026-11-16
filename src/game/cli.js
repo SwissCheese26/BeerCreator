@@ -3,12 +3,13 @@
 import readline from 'node:readline';
 import fs from 'node:fs';
 import * as g from './index.js';
+import { empireCommand, overview, EMPIRE_HELP } from './empire/cli.js';
 import { HOPS, HOP_FORMS, STYLES, YEASTS, byId } from '../core/data.js';
 import { newRecipeFromStyle, compute } from '../core/brew.js';
 
 const SAVE = process.env.BEER_SAVE || 'beercreator-save.json';
 const argv = process.argv.slice(2);
-const mode = ['sandbox', 'karriere', 'challenge', 'daily'].find(m => argv.includes(m)) || 'story';
+const mode = ['sandbox', 'karriere', 'konzern', 'challenge', 'daily'].find(m => argv.includes(m)) || 'story';
 const difficulty = ['entspannt', 'normal', 'hardcore'].find(d => argv.includes(d)) || 'normal';
 const seed = Date.now() % 100000;
 function fresh() {
@@ -18,7 +19,7 @@ function fresh() {
     if (!g.SCENARIOS[id]) { console.log('Challenges:\n' + g.challengeList().map(c => `  ${c.id.padEnd(18)} ${c.title} (Schwierigkeit ${'★'.repeat(c.difficulty)}, ${c.deadline} Tage) – ${c.goal}`).join('\n') + '\nStart: npm run game -- challenge <id>   oder   npm run game -- daily'); process.exit(0); }
     return g.newGame({ mode: 'challenge', challengeId: id, seed, difficulty });
   }
-  return g.newGame({ mode, seed, difficulty, years: 5 });
+  return g.newGame({ mode, seed, difficulty, years: mode === 'konzern' ? 30 : 5 });
 }
 const resume = fs.existsSync(SAVE) && !argv.includes('neu') && mode === 'story' && !argv.includes('sandbox');
 let s = resume ? JSON.parse(fs.readFileSync(SAVE, 'utf8')) : fresh();
@@ -40,6 +41,7 @@ function status() {
     g.careerGoals(s).forEach(o => out(`  ${o.done ? '✔' : '○'} ${o.text}`));
     g.openContracts(s).forEach(c => out(`  📦 Auftrag #${c.id} ${c.customer}: ${c.liters} L ${c.styleId} (Q≥${c.minQuality}) ${c.pricePerL} €/L – noch ${c.deadline - s.day} Tage, geliefert ${c.delivered} L`));
   }
+  if (s.empire) overview(s, out);
   if (s.challenge) { const c = g.challengeStatus(s); out(`Challenge „${c.title}“: ${c.goal}\n  Ziel-Sterne bei ${c.thresholds.join(' / ')} ${c.unit} (${c.better === 'lower' ? 'weniger ist besser' : 'mehr ist besser'}) | bisher ${c.best ?? '–'} | ${'⭐'.repeat(c.stars) || 'noch kein Stern'} | noch ${c.daysLeft} Tage`); }
   if (s.gameOver) out(`\n=== SPIELENDE: ${s.gameOver.reason}${s.gameOver.rank ? ' – Rang ' + s.gameOver.rank : ''}${s.gameOver.stars != null ? ' – ' + s.gameOver.stars + ' ⭐' : ''} | Punkte ${s.gameOver.score} ===`);
   out(`${s.breweryName} | ${g.dayLabel(x.day)} | ${s.mode === 'sandbox' ? 'Sandbox' : x.chapter} | Geld ${s.mode === 'sandbox' ? '∞' : x.cash.toFixed(2) + ' €'} | Ruf ${s.reputation.toFixed(0)} | Ansehen ${s.honor.toFixed(0)} | Bierliga Platz ${x.rank}/${x.rankOf} | Ort: ${x.stage}`);
@@ -75,7 +77,7 @@ const HELP = `Befehle:
   markt                         – (Karriere) Preisfaktoren je Stil, Hopfenpreis, Trends, Ereignisse
   liefern <auftrag> <bier>      – (Karriere) Auftrag beliefern, auch in Teillieferungen
   fertig                        – (Challenge) abgeben und Sterne kassieren
-Modi beim Start:  npm run game | sandbox | karriere [entspannt|normal|hardcore] | challenge <id> | daily`;
+Modi beim Start:  npm run game | sandbox | karriere | konzern [entspannt|normal|hardcore] | challenge <id> | daily${s.empire ? '\n' + EMPIRE_HELP : ''}`;
 const FORM = { dolde: 'whole', pellet: 'pellet', extrakt: 'extract' };
 
 function run(line) {
@@ -135,7 +137,7 @@ function run(line) {
       case 'speichern': if (g.diffOf(s).ironman) out('Ironman: Es gibt nur den automatischen Spielstand.'); else { fs.writeFileSync(SAVE, JSON.stringify(s)); out('Gespeichert.'); } break;
       case 'beenden': fs.writeFileSync(SAVE, JSON.stringify(s)); process.exit(0);
       case '': break;
-      default: out('Unbekannter Befehl. „hilfe“ zeigt alle Befehle.');
+      default: if (!empireCommand(s, cmd, a, out, n => g.advanceDays(s, n))) out('Unbekannter Befehl. „hilfe“ zeigt alle Befehle.');
     }
   } catch (e) { if (e instanceof g.GameError) out(`  ✗ ${e.message}`); else throw e; }
   if (s.mode === 'story' || g.diffOf(s).ironman) fs.writeFileSync(SAVE, JSON.stringify(s)); // Autosave (Ironman: immer)

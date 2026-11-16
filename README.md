@@ -124,3 +124,16 @@ Neue Terminal-Befehle: `markt`, `liefern <auftrag> <bier>`, `fertig`. Alle Chall
 - **Opas Rezeptbuch:** sechs Seiten als roter Faden; mit allen Seiten gibt es am Ende einen besonderen Auftrag.
 - **Folgen:** Kredit- und Investoren-Raten, Gehälter, Hopfen-Preisschock, Skandale und alte Sünden kommen zurück. Fristen haben eine zweite Chance, danach eine Konsequenz statt Sackgasse.
 - **Tests:** `test/campaign.test.js` (jede Option anwendbar, alle Enden erreichbar, kein Soft-Lock, Spielzeit-Schätzung 100–240 min für einen effizienten Spieler; Bot-Läufe liegen bei ca. 185–220 min).
+
+## Braukonzern-Modus (Weltgruppe)
+Vom Regionalbrauer zur Weltgruppe – `npm run game:konzern` (Logik: `src/game/empire/`).
+
+- **26 Länder** mit eigener Marktgröße, Preisniveau, Biersteuer, Gewinnsteuer, Wachstum, Konkurrenz, Kostenniveau, politischem Risiko und Biervorlieben (z. B. Pils in Tschechien, Stout in Irland, Tripel in Belgien, IPA in den USA).
+- **104 erfundene Zielbrauereien** (je Land klein, mittel, groß und ein nationaler Marktführer) – Übernahme mit Kaufpreis nach EBITDA, Integrationsphase und Synergien.
+- **Neubauten** (Größe, Stil, Bauzeit 6–18 Monate), **Ausbau** (Kapazität, Technik, Qualität), **Haupt-Bierstil**, **Marketing** je Land, **Konzernmarken**.
+- **Finanzen:** Kredite bis 6× EBITDA, Rating AA–B mit Zinsen von 3 bis 11 %, Gewinnsteuern je Land, Zentrale-Kosten, Insolvenz bei dauerhaft fehlender Liquidität.
+- **Kartellamt** stoppt Übernahmen über 35 % Marktanteil. **Einkaufsmacht** macht Größe attraktiv.
+- **Weltrangliste** gegen zehn erfundene Konzerne; Platz 1 (nach mehr als 2 Jahren) beendet das Spiel als Weltmarktführer. Sonst Wertung nach 30 Jahren (Unternehmenswert, Rang, Ausstoß) mit Titeln von „Brauereibesitzer“ bis „Biertitan“.
+- **Weltlage:** Rezessionen, Pandemien, Energiekrisen, Währungsschocks, Hitzesommer, Handelsstreit, Steuererhöhungen, Skandale und Preise.
+- Terminal-Befehle: `konzern`, `laender`, `land CZ`, `buero CZ`, `uebernehmen CZ-2`, `bauen PL 150 pils`, `ausbau 2 technik`, `werbung CZ 3`, `marke pils`, `zentrale`, `kredit 10000000`, `rangliste`, `monate 12`. Info-Texte zu allen Ländern und Begriffen: `info CZ`, `info ebitda`.
+- Alle Firmen sind erfunden; Zahlen sind vereinfachte Spielwerte. Getestet per Bot: ein guter Spieler landet nach 30 Jahren auf Platz 2–4 der Welt (ca. 60–75 Mio. hl); Nichtstun bringt keinen Aufstieg.

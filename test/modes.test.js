@@ -4,8 +4,8 @@ import * as g from '../src/game/index.js';
 import { newRecipeFromStyle } from '../src/core/brew.js';
 import { REFS, playCareer, brew, runUntilOver, rec } from './refs.js';
 
-test('Modi sind definiert: Story, Karriere, Challenge, Sandbox', () => {
-  assert.deepEqual(Object.keys(g.MODES).sort(), ['challenge', 'karriere', 'sandbox', 'story']);
+test('Modi sind definiert: Story, Karriere, Konzern, Challenge, Sandbox', () => {
+  assert.deepEqual(Object.keys(g.MODES).sort(), ['challenge', 'karriere', 'konzern', 'sandbox', 'story']);
 });
 
 test('Jede Challenge ist lösbar (Referenzlösung ≥ 1 Stern) und der Zustand bleibt JSON', () => {

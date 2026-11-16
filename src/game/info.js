@@ -2,6 +2,7 @@
 import { MALTS, HOPS, HOP_FORMS, YEASTS, STYLES } from '../core/data.js';
 import { EQUIPMENT } from './config.js';
 import { LEVELS, STYLE_META } from './progress.js';
+import { COUNTRIES } from './empire/data.js';
 
 const MALT_INFO = {
   pilsner: 'Das hellste Standardmalz (3–4 EBC) mit viel vergärbarem Extrakt und sauberem, leicht honigartigem Malzgeschmack. Basis für Pils, Helles, Kölsch und Tripel. Braucht eine Kochzeit von mindestens 60 Minuten, damit der Geruchsstoff DMS abdampft.',
@@ -169,6 +170,28 @@ STYLES.forEach(st => {
 Object.entries(EQUIPMENT).forEach(([slot, tiers]) => Object.entries(tiers).forEach(([id, e]) =>
   add('gear', `${slot}:${id}`, e.name, `${EQUIP_INFO[`${slot}:${id}`]}${e.cost ? ` Preis: ${e.cost} €.` : ' (Startausrüstung.)'}`)));
 Object.entries(METRIC_INFO).forEach(([id, [t, x]]) => add('metric', id, t, x));
+const KONZERN_INFO = {
+  ebitda: ['EBITDA', 'Betriebsgewinn vor Zinsen, Steuern und Abschreibungen: Erlös minus Herstellkosten, Fixkosten, Marketing und Biersteuer. Die wichtigste Kennzahl für Kaufpreis und Kreditwürdigkeit.'],
+  verschuldung: ['Verschuldung & Kredite', 'Nettoschulden geteilt durch das Jahres-EBITDA. Banken leihen höchstens das Sechsfache des Jahres-EBITDA. Je höher die Verschuldung, desto teurer die Zinsen – und bei zu wenig Liquidität droht die Insolvenz.'],
+  rating: ['Rating', 'Bonität deines Konzerns (AA bis B). Sie hängt an der Verschuldung und bestimmt den Kreditzins von 3 % (AA) bis 11 % (B) sowie den Unternehmenswert.'],
+  kartell: ['Kartellamt', 'Wer in einem Land über 35 % des Marktes kontrollieren würde, bekommt eine Übernahme untersagt. Neubauten sind unbegrenzt, brauchen aber Zeit und Kapital.'],
+  integration: ['Integration', 'Sechs Monate nach einem Kauf ist die neue Brauerei teurer (+5 % Kosten). Danach greifen Synergien (−3 %).'],
+  einkaufsmacht: ['Einkaufsmacht', 'Je mehr Brauereien du hast, desto besser verhandelst du bei Malz, Hopfen, Flaschen und Energie (bis −15 %). Auch jede Zentrale-Stufe senkt die Kosten um 2 %.'],
+  zentrale: ['Konzernzentrale', 'Bestimmt, wie viele Brauereien und Länder du führen kannst (von 3 Brauereien in 2 Ländern bis 40 in 26) – und kostet laufend Geld. Ausbau lohnt sich erst, wenn du das Limit wirklich erreichst.'],
+  neubau: ['Neubau', 'Eine neue Brauerei kostet rund 95 € je hl Jahreskapazität (mal Länderkosten) und braucht 6–18 Monate. Dafür bestimmst du Größe, Stil und Technik selbst.'],
+  uebernahme: ['Übernahme', 'Eine bestehende Brauerei kaufst du zum Vielfachen ihres EBITDA. In verschlossenen Märkten ist sie teurer. Sie bringt sofort Menge, Marke und Kunden – aber auch ihre Schwächen.'],
+  werbung: ['Marketing im Land', 'Stufe 0–3 kostet 0 bis 9 % vom Erlös. Es erhöht den Marktanteil (+25 % je Stufe) und lässt die Marke wachsen. Ohne Werbung verblasst die Marke.'],
+  marke: ['Konzernmarke', 'Eine internationale Marke stärkt alle Brauereien in Ländern, in denen ihr Stil beliebt ist. Sie wächst nur, wenn du in den Märkten wirbst.'],
+  fokus: ['Haupt-Bierstil', 'Jede Brauerei konzentriert sich auf einen Stil. Je besser er zur Biervorliebe des Landes passt (z. B. Pils in Tschechien), desto höher der Marktanteil.'],
+  risiko: ['Politisches Risiko', 'In riskanten Ländern passieren häufiger Skandale und Störungen. Dafür sind Kaufpreise niedriger und die Märkte wachsen oft schneller.'],
+  waehrung: ['Währung & Weltlage', 'Zufallsereignisse wie Währungsschocks, Rezessionen, Pandemien, Energiekrisen oder Hitzesommer verändern Nachfrage, Preise und Kosten für einige Monate.'],
+  bewertung: ['Unternehmenswert', 'Jahres-EBITDA mal ein Faktor von 6 bis 14 (höher bei Wachstum und gutem Rating, niedriger bei Risiko), minus Schulden plus Kasse. Daraus entsteht dein Punktestand.'],
+  rangliste: ['Weltrangliste', 'Deine Gruppe gegen zehn erfundene Konzerne, gemessen am Jahresausstoß in Mio. hl. Platz 1 nach mehr als zwei Jahren beendet das Spiel als Weltmarktführer.'],
+  kapazitaet: ['Kapazitätsausbau', 'Plus 25 % Kapazität für rund 85 € je hl. Lohnt sich nur, wenn die Nachfrage mitkommt – prüfe Qualität, Marke und Marketing.'],
+  technik: ['Technikstufe', 'Moderne Anlagen senken die Herstellkosten um 7 % je Stufe und heben die Qualität. Stufe 1–5.'],
+};
+COUNTRIES.forEach(c => add('land', c.id, `${c.flag} ${c.name}`, `${c.note} (Markt ${Math.round(c.marketKhl / 1000)} Mio. hl/Jahr, Erlös ca. ${c.price} €/hl, Biersteuer ${c.excise} %, Gewinnsteuer ${c.tax} %, Wachstum ${c.growth} %/Jahr, Risiko ${Math.round(c.risk * 100)} %.)`));
+Object.entries(KONZERN_INFO).forEach(([id, [t, x]]) => add('konzern', id, t, x));
 Object.entries(FLAW_INFO).forEach(([id, [t, x]]) => add('flaw', id, t, x));
 LEVELS.forEach(l => add('level', String(l.lvl), `Level ${l.lvl}: ${l.name}`, `Ab ${l.xp} Erfahrung. Schaltet Kurse bis Level ${l.lvl} frei und verbessert Hygiene und Genauigkeit.`));
 
